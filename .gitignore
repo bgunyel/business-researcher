@@ -1,0 +1,17 @@
+# Python generated files/folders
+.idea/
+__pycache__/
+.ipynb_checkpoints/
+
+# Virtual Environments
+.venv/
+
+# Input/Output folders
+input/
+out/
+docs/
+
+# Environment Variables
+.env
+
+
