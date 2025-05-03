@@ -7,15 +7,21 @@ from src.business_researcher import Researcher, SearchType
 
 
 def main():
-    business_researcher = Researcher()
-    engine = Engine(responder=business_researcher,
-                    models=[settings.LANGUAGE_MODEL],
-                    ollama_url=settings.OLLAMA_URL,
-                    save_to_folder=settings.OUT_FOLDER)
+
+    engine = Engine(
+        responder=Researcher(
+            model_name=settings.LANGUAGE_MODEL,
+            ollama_url=settings.OLLAMA_URL,
+            web_search_api_key=settings.TAVILY_API_KEY
+        ),
+        models=[settings.LANGUAGE_MODEL],
+        ollama_url=settings.OLLAMA_URL,
+        save_to_folder=settings.OUT_FOLDER
+    )
 
     input_dict = {
         "name": "Harrison Chase",
-        "work_email": "harrison@langchain.dev",
+        "email": "harrison@langchain.dev",
         'search_type': SearchType('person')
     }
 
