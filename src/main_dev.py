@@ -20,12 +20,19 @@ def main():
     )
 
     input_dict = {
-        "name": "Harrison Chase",
-        "email": "harrison@langchain.dev",
-        'search_type': SearchType('person')
+        'person': {
+            "name": "Harrison Chase",
+            "email": "harrison@langchain.dev",
+            'search_type': SearchType('person')
+        },
+        'company': {
+            "name": "LangChain",
+            'search_type': SearchType('company')
+        }
     }
 
-    response = engine.get_response(input_dict=input_dict)
+    engine.save_flow_chart(save_to_folder=settings.OUT_FOLDER)
+    response = engine.get_response(input_dict=input_dict['company'])
 
     dummy = -32
 

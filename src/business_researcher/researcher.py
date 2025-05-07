@@ -6,33 +6,59 @@ from typing import Any
 from langgraph.graph import START, END, StateGraph
 from langchain_core.runnables import RunnableConfig
 
-from ai_common import GraphBase, WebSearch
+from ai_common import GraphBase, WebSearch, format_sources
 from .configuration import Configuration
 from .enums import SearchType, Node
 from .schema import data_extraction_schema
 from .state import SearchState, Person, Company
+from .components.linkedin_finder import LinkedinFinder
 from .components.query_writer import QueryWriter
+from .components.note_taker import NoteTaker
 
 
 class Researcher(GraphBase):
 
     def __init__(self, model_name: str, ollama_url: str, web_search_api_key: str) -> None:
         config = Configuration()
+        self.linkedin_finder = LinkedinFinder(model_name=model_name,
+                                        ollama_url=ollama_url,
+                                        context_window_length=config.context_window_length)
         self.query_writer = QueryWriter(model_name = model_name,
                                         ollama_url = ollama_url,
                                         context_window_length = config.context_window_length)
-        self.web_search = WebSearch(api_key=web_search_api_key,
-                                    search_category=config.search_category,
-                                    number_of_days_back=config.number_of_days_back,
-                                    include_raw_content=True)
+        self.web_search = WebSearch(api_key = web_search_api_key,
+                                    search_category = config.search_category,
+                                    number_of_days_back = config.number_of_days_back,
+                                    include_raw_content = True)
+        self.note_taker = NoteTaker(model_name = model_name,
+                                    ollama_url = ollama_url,
+                                    context_window_length = config.context_window_length)
 
         self.graph = self.build_graph()
 
 
     def web_search_run(self, state: SearchState, config: RunnableConfig) -> SearchState:
-        source_str = self.web_search.search(search_queries=state.search_queries)
+
+        if state.iteration == 1:
+            match state.search_type:
+                case SearchType.PERSON.value:
+                    query = f'{state.person.name} linkedin profile'
+                    query += f' {state.person.email}' if state.person.email is not None else ''
+                    query += f' {state.person.company}' if state.person.company is not None else ''
+                case SearchType.COMPANY.value:
+                    query = f'{state.company.name} linkedin company page'
+                    query += f' {state.company.email}' if state.company.email is not None else ''
+                case _:
+                    raise RuntimeError(f'Unknown search type {state.search_type}')
+            state.search_queries = [query]
+        else:
+            pass
+
+        unique_sources = self.web_search.search(search_queries=state.search_queries)
+        source_str = format_sources(unique_sources=unique_sources, max_tokens_per_source=5000, include_raw_content=True)
         state.steps.append(Node.WEB_SEARCH.value)
         state.source_str = source_str
+        state.unique_sources = unique_sources
         return state
 
 
@@ -46,9 +72,7 @@ class Researcher(GraphBase):
                 person = Person(
                     name = input_dict['name'] if 'name' in input_dict.keys() else None,
                     company = input_dict['company'] if 'company' in input_dict.keys() else None,
-                    linkedin = input_dict['linkedin'] if 'linkedin' in input_dict.keys() else None,
                     email = input_dict['email'] if 'email' in input_dict.keys() else None,
-                    role = input_dict['role'] if 'role' in input_dict.keys() else None,
                 )
                 company = None
             case SearchType.COMPANY.value:
@@ -67,8 +91,15 @@ class Researcher(GraphBase):
             steps = [],
             search_queries = [],
             extraction_schema = schema,
+            out_info=schema['properties'],
             source_str= '',
+            unique_sources={},
+            notes='',
+            iteration=1
         )
+
+        for key in in_state.out_info.keys():
+            in_state.out_info[key]['value'] = None
 
         config = {"configurable": {"thread_id": str(uuid4())}}
         out_state = self.graph.invoke(in_state, config)
@@ -79,13 +110,16 @@ class Researcher(GraphBase):
         workflow = StateGraph(SearchState, config_schema=Configuration)
 
         ## Nodes
-        workflow.add_node(node=Node.QUERY_WRITER.value, action=self.query_writer.run)
+        # workflow.add_node(node=Node.QUERY_WRITER.value, action=self.query_writer.run)
         workflow.add_node(node=Node.WEB_SEARCH.value, action=self.web_search_run)
+        workflow.add_node(node=Node.LINKEDIN_FINDER.value, action=self.linkedin_finder.run)
+        workflow.add_node(node=Node.NOTE_TAKER.value, action=self.note_taker.run)
 
         ## Edges
-        workflow.add_edge(start_key=START, end_key=Node.QUERY_WRITER.value)
-        workflow.add_edge(start_key=Node.QUERY_WRITER.value, end_key=Node.WEB_SEARCH.value)
-        workflow.add_edge(start_key=Node.WEB_SEARCH.value, end_key=END)
+        workflow.add_edge(start_key=START, end_key=Node.WEB_SEARCH.value)
+        workflow.add_edge(start_key=Node.WEB_SEARCH.value, end_key=Node.LINKEDIN_FINDER.value)
+        workflow.add_edge(start_key=Node.LINKEDIN_FINDER.value, end_key=Node.NOTE_TAKER.value)
+        workflow.add_edge(start_key=Node.NOTE_TAKER.value, end_key=END)
 
         # Compile graph
         compiled_graph = workflow.compile()

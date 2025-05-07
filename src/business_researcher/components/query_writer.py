@@ -7,6 +7,7 @@ from ..enums import Node, SearchType
 from ..state import SearchState
 from ..configuration import Configuration
 from ..schema import data_extraction_schema
+from .utils import generate_info_str
 
 PERSON_QUERY_WRITING_INSTRUCTIONS = """
 Your goal is to generate targeted web search queries that will gather specific information about a person according to a given schema.
@@ -20,9 +21,9 @@ Your goal is to generate targeted web search queries that will gather specific i
 </schema>
 
 When generating the search queries, ensure they:
-1. Make sure to look up the right name
-2. Take advantage of the email, as it includes the name and/or surname of the person and the name of the person's company
-3. Use context clues such as the company the person works at (if it isn't concretely provided)
+1. Make sure to look up the right name.
+2. Make sure to include the email in every query if email is provided.
+3. Make sure to include the company in every query if company is provided.
 4. Do not hallucinate search terms that will make you miss the persons profile entirely
 5. Take advantage of the Linkedin URL if it exists, you can include the raw URL in your search query as that will lead you to the correct page guaranteed.
 
@@ -89,27 +90,6 @@ QUERY_WRITING_INSTRUCTIONS = {
 }
 
 
-def format_instructions(state: SearchState, configurable: Configuration):
-    query_instructions_template = QUERY_WRITING_INSTRUCTIONS[state.search_type]
-
-    match state.search_type:
-        case SearchType.PERSON.value:
-            search_object = state.person
-        case SearchType.COMPANY.value:
-            search_object = state.company
-        case _:
-            raise ValueError('Invalid search type!')
-
-    info_str = ''
-    for attr in search_object.model_dump().keys():
-        info_str += f'{attr.upper()}: {search_object.model_dump()[attr]}\n'
-
-    instructions = query_instructions_template.format(info=info_str,
-                                                      schema=data_extraction_schema[state.search_type],
-                                                      number_of_queries=configurable.number_of_queries)
-    return instructions
-
-
 class QueryWriter:
     def __init__(self, model_name: str, context_window_length: int, ollama_url: str):
         self.model_name = model_name
@@ -127,10 +107,14 @@ class QueryWriter:
             :param state: The current flow state
             :param config: The configuration
         """
-        configurable = Configuration.from_runnable_config(config=config)
+        configurable = Configuration.from_runnable_config(config = config)
         state.steps.append(Node.QUERY_WRITER.value)
 
-        instructions = format_instructions(state = state, configurable=configurable)
+        info_str = generate_info_str(state = state)
+        query_instructions_template = QUERY_WRITING_INSTRUCTIONS[state.search_type]
+        instructions = query_instructions_template.format(info=info_str,
+                                                          schema=data_extraction_schema[state.search_type],
+                                                          number_of_queries=configurable.number_of_queries)
 
         results = self.query_writer_llm.invoke(
             [

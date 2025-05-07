@@ -6,25 +6,38 @@ PERSON_EXTRACTION_SCHEMA = {
     "title": "Person",
     "type": "object",
     "required": [
-        "years_experience",
-        "current_company",
+        "linkedin_profile",
         "role",
-        "prior_companies",
+        "work_email",
+        "current_company",
+        "companies",
+        "years_experience",
     ],
     "properties": {
-        "role": {"type": "string", "description": "Current role of the person."},
-        "years_experience": {
-            "type": "number",
-            "description": "How many years of full time work experience (excluding internships) does this person have.",
+        "linkedin_profile": {
+            "type": "string",
+            "description": "Link to the Linkedin profile of the person."
+        },
+        "role": {
+            "type": "string",
+            "description": "Current role of the person."
+            },
+        "work_email": {
+            "type": "string",
+            "description": "Work email of the person."
         },
         "current_company": {
             "type": "string",
             "description": "The name of the current company the person works at.",
-        },
-        "prior_companies": {
+            },
+        "companies": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "List of previous companies where the person has worked",
+            "description": "List of  companies where the person has worked, including the current company",
+            },
+        "years_experience": {
+            "type": "number",
+            "description": "Total years of full time work experience (excluding internships) this person has.",
         },
     },
 }
@@ -33,15 +46,46 @@ COMPANY_EXTRACTION_SCHEMA = {
     "title": "CompanyInfo",
     "description": "Basic information about a company",
     "type": "object",
-    "required": ["company_name"],
+    "required": [
+        "name",
+        "description",
+        "website",
+        "linkedin_url",
+        "crunchbase_profile"
+        "year_founded",
+        "ceo",
+        "founder_names",
+        "product_description",
+        "funding_summary"
+    ],
     "properties": {
-        "company_name": {
+        "name": {
             "type": "string",
             "description": "Official name of the company",
         },
-        "founding_year": {
+        "description": {
+            "type": "string",
+            "description": "Brief overview of the company's products or services",
+        },
+        "website": {
+            "type": "string",
+            "description": "Website of the company",
+        },
+        "linkedin_url": {
+            "type": "string",
+            "description": "Link to the Linkedin profile of the company."
+        },
+        "crunchbase_profile": {
+            "type": "string",
+            "description": "Link to the Crunchbase profile of the company."
+        },
+        "year_founded": {
             "type": "integer",
             "description": "Year the company was founded",
+        },
+        "ceo": {
+            "type": "string",
+            "description": "CEO of the company"
         },
         "founder_names": {
             "type": "array",
