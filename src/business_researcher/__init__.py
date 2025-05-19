@@ -1,9 +1,9 @@
-from .researcher import Researcher
+from .researcher import BusinessResearcher
 from .enums import SearchType
 
 
 # In alphabetical order
 __all__ = [
-    'Researcher',
+    'BusinessResearcher',
     'SearchType',
 ]

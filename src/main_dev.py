@@ -3,21 +3,56 @@ import time
 
 from config import settings
 from ai_common import Engine
-from src.business_researcher import Researcher, SearchType
+from src.business_researcher import BusinessResearcher, SearchType
+from src.business_researcher.enums import LlmServers
+
+from openai import OpenAI
+from langchain_openai import ChatOpenAI
 
 
 def main():
 
+    """
     engine = Engine(
-        responder=Researcher(
+        responder=BusinessResearcher(
             model_name=settings.LANGUAGE_MODEL,
-            ollama_url=settings.OLLAMA_URL,
+            llm_base_url=settings.LLM_BASE_URL,
             web_search_api_key=settings.TAVILY_API_KEY
         ),
         models=[settings.LANGUAGE_MODEL],
-        ollama_url=settings.OLLAMA_URL,
+        ollama_url=settings.LLM_BASE_URL,
         save_to_folder=settings.OUT_FOLDER
     )
+    """
+
+    llm_server = LlmServers.GROQ
+
+    llm_config = {
+        LlmServers.GROQ.value: {
+            'model_name': None,
+            'groq_api_key': settings.GROQ_API_KEY,
+            'language_model': settings.LANGUAGE_MODEL,
+            'reasoning_model': settings.REASONING_MODEL,
+        },
+        LlmServers.VLLM.value: {
+            'llm_base_url': None,
+            'vllm_api_key': None
+        },
+        LlmServers.OLLAMA.value: {
+            'model_name': None,
+            'llm_base_url': None,
+            'format': None,  # Literal['', 'json']
+            'context_window_length': None,
+        }
+    }
+
+    researcher = BusinessResearcher(llm_server = llm_server,
+                                    llm_config = llm_config[llm_server.value],
+                                    web_search_api_key = settings.TAVILY_API_KEY)
+
+    print(f'LLM Server: {llm_server.value}')
+    print(f'Language Model: {settings.LANGUAGE_MODEL}')
+    print(f'Reasoning Model: {settings.REASONING_MODEL}')
 
     input_dict = {
         'person': {
@@ -31,8 +66,9 @@ def main():
         }
     }
 
-    engine.save_flow_chart(save_to_folder=settings.OUT_FOLDER)
-    response = engine.get_response(input_dict=input_dict['company'])
+    out = researcher.get_response(input_dict=input_dict['company'])
+    # engine.save_flow_chart(save_to_folder=settings.OUT_FOLDER)
+    # response = engine.get_response(input_dict=input_dict['person'])
 
     dummy = -32
 

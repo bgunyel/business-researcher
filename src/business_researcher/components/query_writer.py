@@ -1,13 +1,40 @@
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_ollama import ChatOllama
+import copy
+from typing import Any
+
 from langchain_core.runnables import RunnableConfig
 
-from ..enums import Node, SearchType
-from ..state import SearchState
+from .utils import generate_info_str, get_llm
 from ..configuration import Configuration
+from ..enums import Node, SearchType, LlmServers
 from ..schema import data_extraction_schema
-from .utils import generate_info_str
+from ..state import SearchState, Queries
+
+"""
+QUERY_SCHEMA = {
+    "description": "Queries",
+    "title": "Queries",
+    "type": "object",
+    "required": [
+        "queries",
+    ],
+    "properties": {
+        "queries": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string"
+                    },
+                    "rationale": {
+                        "type": "string"
+                    },
+                }
+            }
+        }
+    }
+}
+"""
 
 PERSON_QUERY_WRITING_INSTRUCTIONS = """
 Your goal is to generate targeted web search queries that will gather specific information about a person according to a given schema.
@@ -33,18 +60,7 @@ Your queries should be:
 - Diverse enough to cover all aspects of the schema
 
 You will generate exactly {number_of_queries} queries.
-
-Return the queries as a JSON object:
-
-{{
-    queries: [
-            {{
-                "query": "string",
-                "aspect": "string",
-                "rationale": "string"
-            }}
-    ]
-}}
+Generate targeted web search queries that will gather specific information about the given person according to the given schema.
 """
 
 COMPANY_QUERY_WRITING_INSTRUCTIONS = """
@@ -70,18 +86,7 @@ Your queries should be:
 - Diverse enough to cover all aspects of the schema
 
 You will generate exactly {number_of_queries} queries.
-
-Return the queries as a JSON object:
-
-{{
-    queries: [
-            {{
-                "query": "string",
-                "aspect": "string",
-                "rationale": "string"
-            }}
-    ]
-}}
+Generate targeted web search queries that will gather specific information about the given company according to the given schema.
 """
 
 QUERY_WRITING_INSTRUCTIONS = {
@@ -91,15 +96,14 @@ QUERY_WRITING_INSTRUCTIONS = {
 
 
 class QueryWriter:
-    def __init__(self, model_name: str, context_window_length: int, ollama_url: str):
-        self.model_name = model_name
-        self.query_writer_llm = ChatOllama(
-            model=model_name,
-            temperature=0,
-            base_url=ollama_url,
-            format='json',
-            num_ctx=context_window_length,
-        ) | JsonOutputParser()
+    def __init__(self, llm_server: LlmServers, model_params: dict[str, Any]):
+
+        if llm_server == LlmServers.OLLAMA:
+            model_params['format'] = 'json'
+
+        model_params['model_name'] = model_params['language_model']
+        self.base_llm = get_llm(llm_server=llm_server, model_params=model_params)
+        self.structured_llm = self.base_llm.with_structured_output(Queries)
 
     def run(self, state: SearchState, config: RunnableConfig) -> SearchState:
         """
@@ -112,16 +116,17 @@ class QueryWriter:
 
         info_str = generate_info_str(state = state)
         query_instructions_template = QUERY_WRITING_INSTRUCTIONS[state.search_type]
+
+        schema = copy.deepcopy(state.extraction_schema)
+        if len(state.search_focus) > 0:
+            schema['required'] = state.search_focus
+            schema['properties'] = {k: v for k, v in schema['properties'].items() if k in state.search_focus}
+
         instructions = query_instructions_template.format(info=info_str,
-                                                          schema=data_extraction_schema[state.search_type],
+                                                          schema=schema,
                                                           number_of_queries=configurable.number_of_queries)
 
-        results = self.query_writer_llm.invoke(
-            [
-                SystemMessage(content=instructions),
-                HumanMessage(content="Generate search queries that will help with research.")
-            ]
-        )
-
-        state.search_queries = [x['query'] for x in results['queries']]
+        results = self.structured_llm.invoke(instructions)
+        state.search_queries = results.queries
+        # state.search_queries = [x['query'] for x in results['queries']]
         return state

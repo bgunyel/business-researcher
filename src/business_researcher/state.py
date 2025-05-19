@@ -1,5 +1,5 @@
-from typing import Any, Optional
-from pydantic import BaseModel
+from typing import Any, Optional, List
+from pydantic import BaseModel, Field
 
 
 class Person(BaseModel):
@@ -17,23 +17,32 @@ class Company(BaseModel):
     email: Optional[str]
 
 
+class SearchQuery(BaseModel):
+    search_query: str = Field(None, description="Query for web search.")
+
+
+class Queries(BaseModel):
+    queries: List[SearchQuery] = Field(description="List of search queries.")
+
+
 class SearchState(BaseModel):
     """
     Represents the state of business search.
 
     Attributes:
-        search_type: 'person' or 'company'
-        steps: steps followed during graph run
-
+        Given in alphabetical order
     """
-    search_queries: list[str]
-    source_str: str
-    unique_sources: dict[str, Any]
-    steps: list[str]
-    search_type: str # 'person' or 'company'
-    person: Optional[Person] = None
     company: Optional[Company] = None
     extraction_schema: dict[str, Any]
-    out_info: dict[str, Any]
+    is_review_successful: bool
     iteration: int
-    notes: str
+    notes: dict[str, Any]
+    out_info: dict[str, Any]
+    person: Optional[Person] = None
+    search_focus: list[str]
+    search_queries: list[SearchQuery]
+    search_type: str  # 'person' or 'company'
+    source_str: str
+    steps: list[str]
+    unique_sources: dict[str, Any]
+
