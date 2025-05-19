@@ -4,26 +4,10 @@ import time
 from config import settings
 from ai_common import Engine
 from src.business_researcher import BusinessResearcher, SearchType
-from src.business_researcher.enums import LlmServers
-
-from openai import OpenAI
-from langchain_openai import ChatOpenAI
+from ai_common import LlmServers
 
 
 def main():
-
-    """
-    engine = Engine(
-        responder=BusinessResearcher(
-            model_name=settings.LANGUAGE_MODEL,
-            llm_base_url=settings.LLM_BASE_URL,
-            web_search_api_key=settings.TAVILY_API_KEY
-        ),
-        models=[settings.LANGUAGE_MODEL],
-        ollama_url=settings.LLM_BASE_URL,
-        save_to_folder=settings.OUT_FOLDER
-    )
-    """
 
     llm_server = LlmServers.GROQ
 
@@ -46,9 +30,23 @@ def main():
         }
     }
 
+    engine = Engine(
+        responder=BusinessResearcher(
+            llm_server = llm_server,
+            llm_config = llm_config[llm_server.value],
+            web_search_api_key = settings.TAVILY_API_KEY
+        ),
+        llm_server=llm_server,
+        models=[settings.LANGUAGE_MODEL, settings.REASONING_MODEL],
+        llm_base_url=llm_config[llm_server.value].get('llm_base_url', ''),
+        save_to_folder=settings.OUT_FOLDER
+    )
+
+    """
     researcher = BusinessResearcher(llm_server = llm_server,
                                     llm_config = llm_config[llm_server.value],
                                     web_search_api_key = settings.TAVILY_API_KEY)
+    """
 
     print(f'LLM Server: {llm_server.value}')
     print(f'Language Model: {settings.LANGUAGE_MODEL}')
@@ -56,19 +54,19 @@ def main():
 
     input_dict = {
         'person': {
-            "name": "Harrison Chase",
-            "email": "harrison@langchain.dev",
+            "name": "Ian Andrews",
+            "company": 'Groq',
             'search_type': SearchType('person')
         },
         'company': {
-            "name": "LangChain",
+            "name": "Groq",
             'search_type': SearchType('company')
         }
     }
 
-    out = researcher.get_response(input_dict=input_dict['company'])
-    # engine.save_flow_chart(save_to_folder=settings.OUT_FOLDER)
-    # response = engine.get_response(input_dict=input_dict['person'])
+    # out = researcher.get_response(input_dict=input_dict['company'])
+    engine.save_flow_chart(save_to_folder=settings.OUT_FOLDER)
+    response = engine.get_response(input_dict=input_dict['person'])
 
     dummy = -32
 

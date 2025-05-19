@@ -13,9 +13,3 @@ class Node(Enum):
     QUERY_WRITER = 'query_writer'
     RESET = 'reset'
     WEB_SEARCH = 'web_search'
-
-class LlmServers(Enum): # Alphabetical Order
-    GROQ = 'groq'
-    OLLAMA = 'ollama'
-    OPENAI = 'openai'
-    VLLM = 'vllm'

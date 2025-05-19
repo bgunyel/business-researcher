@@ -1,14 +1,10 @@
-import json
-from typing import Any
-import datetime
 import copy
+import datetime
+from typing import Any
 
-from langchain_core.runnables import RunnableConfig
-
-from .utils import generate_info_str, get_llm
-from ..configuration import Configuration
-from ..enums import SearchType, Node, LlmServers
-from ..schema import data_extraction_schema
+from ai_common import LlmServers, get_llm
+from .utils import generate_info_str
+from ..enums import SearchType, Node
 from ..state import SearchState
 
 PERSON_NOTE_TAKING_INSTRUCTIONS = """
@@ -36,12 +32,12 @@ Today's date is:
 </today>
 
 Generate notes about the person you are interested in. Do not generate notes about an hypothetical person.
-Use the sources that are given to you. Do not generate notes from hypothetical sources.
+Generate notes from the sources that are given to you. Do not generate notes from hypothetical sources.
 
 Important: The sources may include information about multiple people with the same name. Leverage the email of the person you are looking for.
 
 Please make sure that:
-1. You use the provided sources.
+1. You generate notes from the provided sources.
 2. Your notes are detailed, well-organized and easy to read.
 3. Your notes include specific facts, dates, and figures when available.
 4. Your notes maintain accuracy of the original content. Do not hallucinate.
@@ -75,12 +71,12 @@ Today's date is:
 </today>
 
 Generate notes about the company you are interested in. Do not generate notes about an hypothetical company.
-Use the sources that are given to you. Do not generate notes from hypothetical sources.
+Generate notes from the sources that are given to you. Do not generate notes from hypothetical sources.
 
 Important: The sources may include information about multiple companies with the similar names. 
 
 Please make sure that:
-1. You use the provided sources.
+1. You generate notes from the provided sources.
 2. Your notes are detailed, well-organized and easy to read.
 3. Your notes include specific facts, dates, and figures when available.
 4. Your notes maintain accuracy of the original content. Do not hallucinate.
@@ -97,12 +93,11 @@ NOTE_TAKING_INSTRUCTIONS = {
 
 class NoteTaker:
     def __init__(self, llm_server: LlmServers, model_params: dict[str, Any]):
-        model_params['model_name'] = model_params['language_model']
-        self.base_llm = get_llm(llm_server=llm_server, model_params=model_params)
+        self.llm_server = llm_server
+        self.model_params = model_params
 
-    def run(self, state: SearchState, config: RunnableConfig) -> SearchState:
+    def run(self, state: SearchState) -> SearchState:
 
-        configurable = Configuration.from_runnable_config(config=config)
         state.steps.append(Node.NOTE_TAKER.value)
 
         info_str = generate_info_str(state=state)
@@ -117,13 +112,12 @@ class NoteTaker:
                                                                 content=state.source_str,
                                                                 schema=schema,
                                                                 today=datetime.date.today().isoformat())
-        structured_llm = self.base_llm.with_structured_output(schema=schema, method='json_schema')
-        state.notes = structured_llm.invoke(
-            [
-                {
-                    "role": "user",
-                    "content": instructions,
-                }
-            ]
-        )
+        if state.iteration == 0:
+            self.model_params['model_name'] = self.model_params['language_model']
+        else:
+            self.model_params['model_name'] = self.model_params['reasoning_model']
+
+        base_llm = get_llm(llm_server=self.llm_server, model_params=self.model_params)
+        structured_llm = base_llm.with_structured_output(schema=schema, method='json_schema')
+        state.notes = structured_llm.invoke(instructions)
         return state

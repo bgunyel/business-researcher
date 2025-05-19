@@ -1,21 +1,17 @@
-from unittest import case
-from uuid import uuid4
-from pprint import pprint
 from typing import Any
+from uuid import uuid4
 
+from ai_common import GraphBase, WebSearch, LlmServers, format_sources
 from langgraph.graph import START, END, StateGraph
-from langchain_core.runnables import RunnableConfig
 
-from ai_common import GraphBase, WebSearch, format_sources
+from .components.note_reviewer import NoteReviewer
+from .components.note_taker import NoteTaker
+from .components.query_writer import QueryWriter
+from .components.routing import is_review_successful
 from .configuration import Configuration
-from .enums import SearchType, Node, LlmServers
+from .enums import SearchType, Node
 from .schema import data_extraction_schema
 from .state import SearchState, Person, Company
-from .components.linkedin_finder import LinkedinFinder
-from .components.query_writer import QueryWriter
-from .components.note_taker import NoteTaker
-from .components.note_reviewer import NoteReviewer
-from .components.routing import is_review_successful
 
 
 class BusinessResearcher(GraphBase):
@@ -34,16 +30,16 @@ class BusinessResearcher(GraphBase):
         self.graph = self.build_graph()
 
 
-    def web_search_run(self, state: SearchState, config: RunnableConfig) -> SearchState:
+    def web_search_run(self, state: SearchState) -> SearchState:
         """
         if state.iteration == 1:
             match state.search_type:
                 case SearchType.PERSON.value:
-                    query = f'{state.person.name} linkedin profile'
+                    query = f'{state.person.name} LinkedIn profile'
                     query += f' {state.person.email}' if state.person.email is not None else ''
                     query += f' {state.person.company}' if state.person.company is not None else ''
                 case SearchType.COMPANY.value:
-                    query = f'{state.company.name} linkedin company page'
+                    query = f'{state.company.name} LinkedIn company page'
                     query += f' {state.company.email}' if state.company.email is not None else ''
                 case _:
                     raise RuntimeError(f'Unknown search type {state.search_type}')

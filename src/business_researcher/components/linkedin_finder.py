@@ -1,13 +1,11 @@
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_ollama import ChatOllama
-from langchain_core.runnables import RunnableConfig
-
 from ai_common import format_sources
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.runnables import RunnableConfig
+from langchain_ollama import ChatOllama
+
+from .utils import generate_info_str
 from ..enums import Node, SearchType
 from ..state import SearchState
-from ..configuration import Configuration
-from .utils import generate_info_str
 
 PERSON_LINKEDIN_FIND_INSTRUCTIONS = """
 # Role

@@ -2,42 +2,18 @@ import copy
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
+from langchain_core.callbacks import get_usage_metadata_callback
 
-from .utils import generate_info_str, get_llm
+from ai_common import LlmServers, get_llm
+from .utils import generate_info_str
 from ..configuration import Configuration
-from ..enums import Node, SearchType, LlmServers
-from ..schema import data_extraction_schema
+from ..enums import Node, SearchType
 from ..state import SearchState, Queries
 
-"""
-QUERY_SCHEMA = {
-    "description": "Queries",
-    "title": "Queries",
-    "type": "object",
-    "required": [
-        "queries",
-    ],
-    "properties": {
-        "queries": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string"
-                    },
-                    "rationale": {
-                        "type": "string"
-                    },
-                }
-            }
-        }
-    }
-}
-"""
 
 PERSON_QUERY_WRITING_INSTRUCTIONS = """
 Your goal is to generate targeted web search queries that will gather specific information about a person according to a given schema.
+You will generate exactly {number_of_queries} queries.
 
 <person>
 {info}
@@ -59,12 +35,13 @@ Your queries should be:
 - Targeted to gather information according to the schema
 - Diverse enough to cover all aspects of the schema
 
-You will generate exactly {number_of_queries} queries.
+It is very important that you generate exactly {number_of_queries} queries.
 Generate targeted web search queries that will gather specific information about the given person according to the given schema.
 """
 
 COMPANY_QUERY_WRITING_INSTRUCTIONS = """
 Your goal is to generate targeted web search queries that will gather specific information about a company according to a given schema.
+You will generate exactly {number_of_queries} queries.
 
 <company>
 {info}
@@ -85,7 +62,7 @@ Your queries should be:
 - Targeted to gather information according to the schema
 - Diverse enough to cover all aspects of the schema
 
-You will generate exactly {number_of_queries} queries.
+It is very important that you generate exactly {number_of_queries} queries.
 Generate targeted web search queries that will gather specific information about the given company according to the given schema.
 """
 
@@ -126,7 +103,7 @@ class QueryWriter:
                                                           schema=schema,
                                                           number_of_queries=configurable.number_of_queries)
 
+
         results = self.structured_llm.invoke(instructions)
         state.search_queries = results.queries
-        # state.search_queries = [x['query'] for x in results['queries']]
         return state
