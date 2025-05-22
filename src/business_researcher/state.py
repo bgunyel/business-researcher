@@ -33,7 +33,7 @@ class SearchState(BaseModel):
         Given in alphabetical order
     """
     company: Optional[Company] = None
-    extraction_schema: dict[str, Any]
+    # extraction_schema: dict[str, Any]
     is_review_successful: bool
     iteration: int
     notes: dict[str, Any]

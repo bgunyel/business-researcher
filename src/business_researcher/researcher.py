@@ -10,7 +10,7 @@ from .components.query_writer import QueryWriter
 from .components.routing import is_review_successful
 from .configuration import Configuration
 from .enums import SearchType, Node
-from .schema import data_extraction_schema
+# from .schema import data_extraction_schema
 from .state import SearchState, Person, Company
 
 
@@ -79,7 +79,7 @@ class BusinessResearcher(GraphBase):
 
         in_state = SearchState(
             company=company,
-            extraction_schema=data_extraction_schema[search_type],
+            # extraction_schema=data_extraction_schema[search_type],
             is_review_successful=False,
             iteration=0,
             notes={},

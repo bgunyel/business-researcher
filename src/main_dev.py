@@ -1,5 +1,6 @@
 import datetime
 import time
+import rich
 
 from config import settings
 from ai_common import Engine
@@ -51,22 +52,26 @@ def main():
     print(f'LLM Server: {llm_server.value}')
     print(f'Language Model: {settings.LANGUAGE_MODEL}')
     print(f'Reasoning Model: {settings.REASONING_MODEL}')
+    print('\n\n\n')
 
-    input_dict = {
+    examples = {
         'person': {
-            "name": "Ian Andrews",
-            "company": 'Groq',
+            "name": "Ziya Özçelik",
+            "company": 'Sahibinden',
             'search_type': SearchType('person')
         },
         'company': {
-            "name": "Groq",
+            "name": "Sahibinden",
             'search_type': SearchType('company')
         }
     }
 
-    # out = researcher.get_response(input_dict=input_dict['company'])
+    input_dict = examples['company']
+    rich.print(input_dict)
+
     engine.save_flow_chart(save_to_folder=settings.OUT_FOLDER)
-    response = engine.get_response(input_dict=input_dict['person'])
+    response = engine.get_response(input_dict=input_dict)
+    rich.print(response)
 
     dummy = -32
 
