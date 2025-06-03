@@ -1,7 +1,10 @@
 [project]
 name = "business-researcher"
 version = "0.1.0"
-description = "Makes research about professionals and companies"
+description = """
+AI-powered business research tool that automates the process of gathering comprehensive information about
+professionals and companies using web search and LLM-based analysis
+"""
 readme = "README.md"
 authors = [
     { name = "Bertan Günyel", email = "bertan.gunyel@gmail.com" }
