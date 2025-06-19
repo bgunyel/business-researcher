@@ -5,6 +5,10 @@ __pycache__/
 
 # Virtual Environments
 .venv/
+.python-version
+
+# Coding Assistants Related
+.claude/
 
 # Input/Output folders
 input/
