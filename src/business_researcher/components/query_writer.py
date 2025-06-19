@@ -1,16 +1,14 @@
-import copy
 from typing import Any
 import json
 
 from langchain_core.runnables import RunnableConfig
 from langchain_core.callbacks import get_usage_metadata_callback
 
-from ai_common import LlmServers, get_llm
+from ai_common import LlmServers, Queries, get_llm
 from .utils import generate_info_str, get_schema
 from ..configuration import Configuration
 from ..enums import Node, SearchType
-from ..state import SearchState, Queries
-from ..schema import PersonSchema, CompanySchema
+from ..state import SearchState
 
 
 PERSON_QUERY_WRITING_INSTRUCTIONS = """
@@ -107,8 +105,6 @@ class QueryWriter:
         instructions = query_instructions_template.format(info=info_str,
                                                           schema=json.dumps(schema, indent=2),
                                                           number_of_queries=configurable.number_of_queries)
-
-
         results = self.structured_llm.invoke(instructions)
         state.search_queries = results.queries
         return state

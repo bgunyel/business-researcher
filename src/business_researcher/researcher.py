@@ -10,7 +10,6 @@ from .components.query_writer import QueryWriter
 from .components.routing import is_review_successful
 from .configuration import Configuration
 from .enums import SearchType, Node
-# from .schema import data_extraction_schema
 from .state import SearchState, Person, Company
 
 
@@ -31,23 +30,6 @@ class BusinessResearcher(GraphBase):
 
 
     def web_search_run(self, state: SearchState) -> SearchState:
-        """
-        if state.iteration == 1:
-            match state.search_type:
-                case SearchType.PERSON.value:
-                    query = f'{state.person.name} LinkedIn profile'
-                    query += f' {state.person.email}' if state.person.email is not None else ''
-                    query += f' {state.person.company}' if state.person.company is not None else ''
-                case SearchType.COMPANY.value:
-                    query = f'{state.company.name} LinkedIn company page'
-                    query += f' {state.company.email}' if state.company.email is not None else ''
-                case _:
-                    raise RuntimeError(f'Unknown search type {state.search_type}')
-            state.search_queries = [query]
-        else:
-            pass
-        """
-
         unique_sources = self.web_search.search(search_queries=[query.search_query for query in state.search_queries])
         source_str = format_sources(unique_sources=unique_sources, max_tokens_per_source=5000, include_raw_content=True)
         state.steps.append(Node.WEB_SEARCH.value)
@@ -79,7 +61,6 @@ class BusinessResearcher(GraphBase):
 
         in_state = SearchState(
             company=company,
-            # extraction_schema=data_extraction_schema[search_type],
             is_review_successful=False,
             iteration=0,
             notes={},

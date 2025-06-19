@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     TAVILY_API_KEY: str
     VLLM_API_KEY: str
     GROQ_API_KEY: str
+    OPENAI_API_KEY: str
+    ANTHROPIC_API_KEY: str
 
     OUT_FOLDER: str = os.path.join(ENV_FILE_DIR, 'out')
 

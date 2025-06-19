@@ -1,5 +1,7 @@
-from typing import Any, Optional, List
-from pydantic import BaseModel, Field
+from typing import Any, Optional
+from pydantic import BaseModel
+
+from ai_common import SearchQuery
 
 
 class Person(BaseModel):
@@ -17,14 +19,6 @@ class Company(BaseModel):
     email: Optional[str]
 
 
-class SearchQuery(BaseModel):
-    search_query: str = Field(None, description="Query for web search.")
-
-
-class Queries(BaseModel):
-    queries: List[SearchQuery] = Field(description="List of search queries.")
-
-
 class SearchState(BaseModel):
     """
     Represents the state of business search.
@@ -33,7 +27,6 @@ class SearchState(BaseModel):
         Given in alphabetical order
     """
     company: Optional[Company] = None
-    # extraction_schema: dict[str, Any]
     is_review_successful: bool
     iteration: int
     notes: dict[str, Any]

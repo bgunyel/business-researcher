@@ -16,8 +16,14 @@ def main():
         LlmServers.GROQ.value: {
             'model_name': None,
             'groq_api_key': settings.GROQ_API_KEY,
-            'language_model': settings.LANGUAGE_MODEL,
-            'reasoning_model': settings.REASONING_MODEL,
+            'language_model': 'llama-3.3-70b-versatile',
+            'reasoning_model': 'deepseek-r1-distill-llama-70b',
+        },
+        LlmServers.OPENAI.value: {
+            'model_name': None,
+            'openai_api_key': settings.OPENAI_API_KEY,
+            'language_model': 'gpt-4.1-2025-04-14',
+            'reasoning_model': 'o3',
         },
         LlmServers.VLLM.value: {
             'llm_base_url': None,
@@ -43,12 +49,6 @@ def main():
         save_to_folder=settings.OUT_FOLDER
     )
 
-    """
-    researcher = BusinessResearcher(llm_server = llm_server,
-                                    llm_config = llm_config[llm_server.value],
-                                    web_search_api_key = settings.TAVILY_API_KEY)
-    """
-
     print(f'LLM Server: {llm_server.value}')
     print(f'Language Model: {settings.LANGUAGE_MODEL}')
     print(f'Reasoning Model: {settings.REASONING_MODEL}')
@@ -56,12 +56,12 @@ def main():
 
     examples = {
         'person': {
-            "name": "Ziya Özçelik",
-            "company": 'Sahibinden',
+            "name": "Ben van Sprundel",
+            "company": 'Ben AI',
             'search_type': SearchType('person')
         },
         'company': {
-            "name": "Sahibinden",
+            "name": "Groq",
             'search_type': SearchType('company')
         }
     }
