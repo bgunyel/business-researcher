@@ -86,10 +86,76 @@ class QueryWriter:
 
     def run(self, state: SearchState, config: RunnableConfig) -> SearchState:
         """
-        Writes queries for comprehensive web search.
-            :param state: The current flow state
-            :param config: The configuration
+        Generate targeted web search queries based on the search type and extraction schema.
+
+        This method creates specialized search queries for either person or company research,
+        using the appropriate instruction template and the current state information. The 
+        queries are generated using a structured LLM output to ensure they align with the
+        required data schema and search focus.
+
+        Args:
+            state (SearchState): The current search state containing:
+                - search_type: Type of search (PERSON or COMPANY)
+                - search_focus: List of specific fields to focus on (optional)
+                - extraction_schema: Schema defining the structure of data to extract
+                - Additional context information for query generation
+            config (RunnableConfig): Runtime configuration containing:
+                - Configurable parameters including number_of_queries
+                - Other execution context settings
+
+        Returns:
+            SearchState: Updated state with:
+                - search_queries: List of generated search query strings
+                - steps: Updated to include QUERY_WRITER node
+                - token_usage: Updated with LLM token consumption metrics
+
+        Process:
+            1. Extracts configuration parameters from the runnable config
+            2. Adds QUERY_WRITER to the processing steps
+            3. Generates contextual information string from current state
+            4. Selects appropriate query instruction template based on search type
+            5. Builds extraction schema, optionally filtered by search focus
+            6. Formats instructions with context, schema, and query count
+            7. Invokes structured LLM to generate queries matching the Queries schema
+            8. Tracks token usage for monitoring and cost management
+            9. Updates state with generated queries and returns modified state
+
+        Note:
+            - Query generation is optimized for the specific search type (person vs company)
+            - Token usage is tracked for both input and output tokens
+            - Search focus can limit schema properties to specific fields of interest
+            - All queries are validated against the structured Queries output schema
         """
+        # Input validation and protective checks
+        if not isinstance(state, SearchState):
+            raise TypeError("state must be an instance of SearchState")
+        
+        if not hasattr(state, 'search_type') or not state.search_type:
+            raise ValueError("state.search_type is required and cannot be empty")
+        
+        if state.search_type not in [SearchType.PERSON, SearchType.COMPANY]:
+            raise ValueError(f"Invalid search_type: {state.search_type}. Must be '{SearchType.PERSON}' or '{SearchType.COMPANY}'")
+        
+        if not hasattr(state, 'steps') or state.steps is None:
+            raise ValueError("state.steps is required and cannot be None")
+        
+        if not hasattr(state, 'search_focus') or state.search_focus is None:
+            raise ValueError("state.search_focus is required and cannot be None")
+        
+        if not hasattr(state, 'search_queries') or state.search_queries is None:
+            raise ValueError("state.search_queries is required and cannot be None")
+        
+        if not hasattr(state, 'token_usage') or state.token_usage is None:
+            raise ValueError("state.token_usage is required and cannot be None")
+        
+        if self.model_name not in state.token_usage:
+            raise ValueError(f"Model '{self.model_name}' not found in state.token_usage")
+        
+        required_token_keys = ['input_tokens', 'output_tokens']
+        for key in required_token_keys:
+            if key not in state.token_usage[self.model_name]:
+                raise ValueError(f"Missing '{key}' in state.token_usage['{self.model_name}']")
+
         configurable = get_config_from_runnable(
             configuration_module_prefix=self.configuration_module_prefix,
             config=config
