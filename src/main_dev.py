@@ -9,33 +9,39 @@ from ai_common import LlmServers
 
 
 def main():
-
-    llm_server = LlmServers.GROQ
-
     llm_config = {
-        LlmServers.GROQ.value: {
-            'model_name': None,
-            'groq_api_key': settings.GROQ_API_KEY,
-            'language_model': 'llama-3.3-70b-versatile',
-            'reasoning_model': 'deepseek-r1-distill-llama-70b',
+        'language_model': {
+            'model': 'llama-3.3-70b-versatile',
+            'model_provider': LlmServers.GROQ.value,
+            'api_key': settings.GROQ_API_KEY,
+            'model_args': {
+                'temperature': 0,
+                'max_retries': 5,
+                'max_tokens': 32768,
+                'model_kwargs': {
+                    'top_p': 0.95,
+                    'service_tier': "auto",
+                }
+            }
         },
-        LlmServers.OPENAI.value: {
-            'model_name': None,
-            'openai_api_key': settings.OPENAI_API_KEY,
-            'language_model': 'gpt-4.1-2025-04-14',
-            'reasoning_model': 'o3',
-        },
-        LlmServers.VLLM.value: {
-            'llm_base_url': None,
-            'vllm_api_key': None
-        },
-        LlmServers.OLLAMA.value: {
-            'model_name': None,
-            'llm_base_url': None,
-            'format': None,  # Literal['', 'json']
-            'context_window_length': None,
+        'reasoning_model': {
+            'model': 'deepseek-r1-distill-llama-70b',
+            'model_provider': LlmServers.GROQ.value,
+            'api_key': settings.GROQ_API_KEY,
+            'model_args': {
+                'temperature': 0,
+                'max_retries': 5,
+                'max_tokens': 32768,
+                'model_kwargs': {
+                    'top_p': 0.95,
+                    'service_tier': "auto",
+                }
+            }
         }
     }
+
+    language_model = llm_config['language_model'].get('model', '')
+    reasoning_model = llm_config['reasoning_model'].get('model', '')
 
     engine = Engine(
         responder=BusinessResearcher(

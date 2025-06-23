@@ -1,12 +1,12 @@
-from typing import Any
+from typing import Any, Final
 import json
 
+from langchain.chat_models import init_chat_model
 from langchain_core.runnables import RunnableConfig
 from langchain_core.callbacks import get_usage_metadata_callback
 
-from ai_common import LlmServers, Queries, get_llm
+from ai_common import Queries, get_config_from_runnable
 from .utils import generate_info_str, get_schema
-from ..configuration import Configuration
 from ..enums import Node, SearchType
 from ..state import SearchState
 
@@ -67,20 +67,22 @@ Generate targeted web search queries that will gather specific information about
 """
 
 QUERY_WRITING_INSTRUCTIONS = {
-    SearchType.PERSON.value: PERSON_QUERY_WRITING_INSTRUCTIONS,
-    SearchType.COMPANY.value: COMPANY_QUERY_WRITING_INSTRUCTIONS,
+    SearchType.PERSON: PERSON_QUERY_WRITING_INSTRUCTIONS,
+    SearchType.COMPANY: COMPANY_QUERY_WRITING_INSTRUCTIONS,
 }
 
 
 class QueryWriter:
-    def __init__(self, llm_server: LlmServers, model_params: dict[str, Any]):
-
-        if llm_server == LlmServers.OLLAMA:
-            model_params['format'] = 'json'
-
-        model_params['model_name'] = model_params['language_model']
-        self.base_llm = get_llm(llm_server=llm_server, model_params=model_params)
-        self.structured_llm = self.base_llm.with_structured_output(Queries)
+    def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
+        self.model_name = model_params['model']
+        self.configuration_module_prefix: Final = configuration_module_prefix
+        base_llm = init_chat_model(
+            model=model_params['model'],
+            model_provider=model_params['model_provider'],
+            api_key=model_params['api_key'],
+            **model_params['model_args']
+        )
+        self.structured_llm = base_llm.with_structured_output(Queries)
 
     def run(self, state: SearchState, config: RunnableConfig) -> SearchState:
         """
@@ -88,14 +90,14 @@ class QueryWriter:
             :param state: The current flow state
             :param config: The configuration
         """
-        configurable = Configuration.from_runnable_config(config = config)
-        state.steps.append(Node.QUERY_WRITER.value)
+        configurable = get_config_from_runnable(
+            configuration_module_prefix=self.configuration_module_prefix,
+            config=config
+        )
+        state.steps.append(Node.QUERY_WRITER)
 
         info_str = generate_info_str(state = state)
         query_instructions_template = QUERY_WRITING_INSTRUCTIONS[state.search_type]
-
-        # schema = copy.deepcopy(state.extraction_schema)
-
         schema = get_schema(state = state)
 
         if len(state.search_focus) > 0:
@@ -105,6 +107,10 @@ class QueryWriter:
         instructions = query_instructions_template.format(info=info_str,
                                                           schema=json.dumps(schema, indent=2),
                                                           number_of_queries=configurable.number_of_queries)
-        results = self.structured_llm.invoke(instructions)
-        state.search_queries = results.queries
+        with get_usage_metadata_callback() as cb:
+            results = self.structured_llm.invoke(instructions)
+            state.search_queries = results.queries
+            state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
+            state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
+
         return state

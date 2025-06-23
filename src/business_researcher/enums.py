@@ -1,15 +1,19 @@
 from enum import Enum
+from typing import ClassVar
+from ai_common import NodeBase
+from pydantic import BaseModel, ConfigDict
 
+class SearchType(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    # Class attributes
+    COMPANY: ClassVar[str] = 'company'
+    PERSON: ClassVar[str] = 'person'
 
-class SearchType(Enum):
-    COMPANY = 'company'
-    PERSON = 'person'
+class Node(NodeBase):
+    model_config = ConfigDict(frozen=True)
 
-class Node(Enum):
-    # In alphabetical order
-    LINKEDIN_FINDER = 'linkedin_finder'
-    NOTE_TAKER = 'note_taker'
-    NOTE_REVIEWER = 'note_reviewer'
-    QUERY_WRITER = 'query_writer'
-    RESET = 'reset'
-    WEB_SEARCH = 'web_search'
+    # Class attributes
+    LINKEDIN_FINDER: ClassVar[str] = 'linkedin_finder'
+    NOTE_TAKER: ClassVar[str] = 'note_taker'
+    NOTE_REVIEWER: ClassVar[str] = 'note_reviewer'
+    RESET: ClassVar[str] = 'reset'
