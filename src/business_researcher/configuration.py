@@ -1,10 +1,11 @@
-from ai_common import ConfigurationBase, TavilySearchCategory
+from ai_common import CfgBase, TavilySearchCategory
 
 
-class Configuration(ConfigurationBase):
-    """The configurable fields for the chatbot."""
-    context_window_length: int = int(12 * 1024)
-    max_iterations: int = 5
+class Configuration(CfgBase):
+    """The configurable fields for the workflow"""
+    max_iterations: int
+    max_results_per_query: int
+    max_tokens_per_source: int
     number_of_days_back: int = None
-    number_of_queries: int = 3
+    number_of_queries: int
     search_category: TavilySearchCategory = "general"

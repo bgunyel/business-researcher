@@ -37,5 +37,7 @@ class SearchState(BaseModel):
     search_type: str  # 'person' or 'company'
     source_str: str
     steps: list[str]
+    token_usage: dict
+    topic: str
     unique_sources: dict[str, Any]
 

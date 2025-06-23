@@ -8,8 +8,6 @@ ENV_FILE_DIR = os.path.abspath(os.path.join(FILE_DIR, os.pardir))
 class Settings(BaseSettings):
     APPLICATION_NAME: str = "Business Researcher"
 
-    LANGUAGE_MODEL: str = 'llama-3.3-70b-versatile' # 'deepseek-r1-distill-llama-70b' # 'qwen-qwq-32b'
-    REASONING_MODEL: str = 'deepseek-r1-distill-llama-70b'
     LLM_BASE_URL: str
     TAVILY_API_KEY: str
     VLLM_API_KEY: str

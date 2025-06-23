@@ -7,9 +7,9 @@ from ..schema import PersonSchema, CompanySchema
 
 def generate_info_str(state: SearchState):
     match state.search_type:
-        case SearchType.PERSON.value:
+        case SearchType.PERSON:
             search_object = state.person
-        case SearchType.COMPANY.value:
+        case SearchType.COMPANY:
             search_object = state.company
         case _:
             raise ValueError('Invalid search type!')
@@ -31,9 +31,9 @@ def generate_schema_str(schema: dict[str, Any]) -> str:
 
 def get_schema(state: SearchState) -> dict[str, Any]:
     match state.search_type:
-        case SearchType.PERSON.value:
+        case SearchType.PERSON:
             schema = PersonSchema.model_json_schema()
-        case SearchType.COMPANY.value:
+        case SearchType.COMPANY:
             schema = CompanySchema.model_json_schema()
         case _:
             raise RuntimeError(f"Unknown search type {state.search_type}")

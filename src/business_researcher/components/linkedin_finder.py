@@ -67,8 +67,8 @@ Be careful about linkedin company pages which belong to companies other than the
 """
 
 LINKEDIN_FIND_INSTRUCTIONS = {
-    SearchType.PERSON.value: PERSON_LINKEDIN_FIND_INSTRUCTIONS,
-    SearchType.COMPANY.value: COMPANY_LINKEDIN_FIND_INSTRUCTIONS,
+    SearchType.PERSON: PERSON_LINKEDIN_FIND_INSTRUCTIONS,
+    SearchType.COMPANY: COMPANY_LINKEDIN_FIND_INSTRUCTIONS,
 }
 
 

@@ -1,11 +1,12 @@
+import asyncio
 import datetime
 import time
 import rich
+from uuid import uuid4
 
 from config import settings
-from ai_common import Engine
 from src.business_researcher import BusinessResearcher, SearchType
-from ai_common import LlmServers
+from ai_common import LlmServers, PRICE_USD_PER_MILLION_TOKENS
 
 
 def main():
@@ -43,41 +44,54 @@ def main():
     language_model = llm_config['language_model'].get('model', '')
     reasoning_model = llm_config['reasoning_model'].get('model', '')
 
-    engine = Engine(
-        responder=BusinessResearcher(
-            llm_server = llm_server,
-            llm_config = llm_config[llm_server.value],
-            web_search_api_key = settings.TAVILY_API_KEY
-        ),
-        llm_server=llm_server,
-        models=[settings.LANGUAGE_MODEL, settings.REASONING_MODEL],
-        llm_base_url=llm_config[llm_server.value].get('llm_base_url', ''),
-        save_to_folder=settings.OUT_FOLDER
-    )
+    config = {
+        "configurable": {
+            'thread_id': str(uuid4()),
+            'max_iterations': 3,
+            'max_results_per_query': 4,
+            'max_tokens_per_source': 10000,
+            'number_of_days_back': 1e6,
+            'number_of_queries': 3,
+            'search_category': 'general',
+        }
+    }
 
-    print(f'LLM Server: {llm_server.value}')
-    print(f'Language Model: {settings.LANGUAGE_MODEL}')
-    print(f'Reasoning Model: {settings.REASONING_MODEL}')
-    print('\n\n\n')
+    print(f'Language Model: {language_model}')
+    print(f'Reasoning Model: {reasoning_model}')
+    print('\n\n')
+
+    business_researcher = BusinessResearcher(llm_config = llm_config, web_search_api_key = settings.TAVILY_API_KEY)
 
     examples = {
         'person': {
-            "name": "Ben van Sprundel",
-            "company": 'Ben AI',
-            'search_type': SearchType('person')
+            "name": "Harrison Chase",
+            "company": 'LangChain',
+            'search_type': SearchType.PERSON
         },
         'company': {
             "name": "Groq",
-            'search_type': SearchType('company')
+            'search_type': SearchType.COMPANY
         }
     }
 
     input_dict = examples['company']
     rich.print(input_dict)
 
-    engine.save_flow_chart(save_to_folder=settings.OUT_FOLDER)
-    response = engine.get_response(input_dict=input_dict)
-    rich.print(response)
+    event_loop = asyncio.new_event_loop()
+    out_dict = event_loop.run_until_complete(business_researcher.run(input_dict=input_dict, config=config))
+    event_loop.close()
+
+    total_cost = 0
+    for model_type, params in llm_config.items():
+        model_provider = params['model_provider']
+        model = params['model']
+        price_dict = PRICE_USD_PER_MILLION_TOKENS[model_provider][model]
+        cost = sum([price_dict[k] * out_dict['token_usage'][model][k] for k in price_dict.keys()]) / 1e6
+        total_cost += cost
+        print(f'Cost for {model_provider}: {model} --> {cost:.4f} USD')
+    print(f'Total Token Usage Cost: {total_cost:.4f} USD')
+    print('\n\n\n')
+    print(out_dict['content'])
 
     dummy = -32
 
