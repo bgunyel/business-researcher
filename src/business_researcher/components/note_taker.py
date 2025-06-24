@@ -1,22 +1,23 @@
 import datetime
 from typing import Any, Final
+import json
 
 from langchain_core.callbacks import get_usage_metadata_callback
 from langchain.chat_models import init_chat_model
 
-from .utils import generate_info_str
+from .utils import get_schema
 from ..enums import SearchType, Node
 from ..state import SearchState
 from ..schema import PersonSchema, CompanySchema
 
 
-PERSON_NOTE_TAKING_INSTRUCTIONS = """
-Your goal is to extract information about a person, using the provided sources.
+NOTE_TAKING_INSTRUCTIONS = """
+Your goal is to extract information about a {search_type}, using the provided sources.
 
-The person you are interested in:
-<person>
+The {search_type} you are interested in:
+<{search_type}>
 {info}
-</person>
+</{search_type}>
 
 The sources you are going to use:
 <sources>
@@ -32,41 +33,29 @@ Please make sure that:
 1. You extract information from the provided sources.
 2. You maintain accuracy of the original content. Do not hallucinate.
 
-Please note when important information appears to be missing or unclear.
-When a particular information is missing in the given sources, return "Not Available" for that information.
+<Format>
+* Format your response as a JSON object.
+* Every item in the JSON object should have the following fields:
+    - "description": The description given in the JSON schema.
+    - "title": The title given in the JSON schema.
+    - "type": The type given in the JSON schema.
+    - "value": The value of the information you extract from the given sources.
+
+{json_schema}
+</Format>
+
+<Requirements> 
+* Please note when important information appears to be missing or unclear.
+* When a particular information is missing in the given sources, return "Not Available" for that information.
+</Requirements> 
+
+<Task>
+* Think carefully about the provided context first.
+* Then extract the necessary information from the provided sources, according to the given JSON format.
+* When a particular information is missing in the given sources, return "Not Available" for that information.
+* Return your answer in the given JSON format. 
+</Task>
 """
-
-COMPANY_NOTE_TAKING_INSTRUCTIONS = """
-Your goal is to extract information about a company, using the provided sources.
-
-The company you are interested in:
-<company>
-{info}
-</company>
-
-The sources you are going to use:
-<sources>
-{content}
-</sources>
-
-Today's date is:
-<today>
-{today}
-</today>
-
-Please make sure that:
-1. You extract information from the provided sources.
-2. You maintain accuracy of the original content. Do not hallucinate.
-
-Please note when important information appears to be missing or unclear.
-When a particular information is missing in the given sources, return "Not Available" for that information. 
-"""
-
-NOTE_TAKING_INSTRUCTIONS = {
-    SearchType.PERSON: PERSON_NOTE_TAKING_INSTRUCTIONS,
-    SearchType.COMPANY: COMPANY_NOTE_TAKING_INSTRUCTIONS,
-}
-
 
 class NoteTaker:
     def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
@@ -90,71 +79,76 @@ class NoteTaker:
         LLM with structured output to ensure data consistency and accuracy, while tracking
         token usage for monitoring and cost management.
 
+        The method performs comprehensive input validation to ensure data integrity, formats
+        contextualized instructions for the LLM, and processes the structured output to
+        maintain accuracy while avoiding hallucination. Missing information is explicitly
+        handled by marking it as "Not Available" in the extracted data.
+
         Args:
             state (SearchState): The current search state containing:
                 - search_type: Type of search (PERSON or COMPANY) determining extraction schema
                 - source_str: Raw source content to extract information from
-                - person or company: Target entity information for context
-                - token_usage: Dictionary to track LLM token consumption
-                - Additional context for information extraction
+                - topic: Target entity information for contextual extraction
+                - person/company: Entity-specific information based on search_type
+                - token_usage: Dictionary tracking LLM token consumption by model
+                - steps: List of processing steps for workflow tracking
 
         Returns:
             SearchState: Updated state with:
                 - notes: Extracted structured information (PersonSchema or CompanySchema)
-                - steps: Updated to include NOTE_TAKER node
-                - token_usage: Updated with LLM token consumption metrics
-
-        Process:
-            1. Adds NOTE_TAKER to the processing steps
-            2. Generates contextual information string about the target entity
-            3. Selects appropriate instruction template based on search type
-            4. Formats instructions with entity info, source content, and current date
-            5. Configures structured LLM output based on search type:
-               - PersonSchema for person searches
-               - CompanySchema for company searches
-            6. Invokes LLM to extract structured information from sources
-            7. Tracks token usage for both input and output tokens
-            8. Updates state with extracted notes and token metrics
+                - steps: Updated to include NOTE_TAKER node in processing workflow
+                - token_usage: Updated with current LLM invocation token consumption
 
         Raises:
-            RuntimeError: If an unknown search type is encountered
+            TypeError: If state parameter is not an instance of SearchState
+            ValueError: If required state attributes are missing, None, or invalid:
+                - search_type must be PERSON or COMPANY
+                - source_str cannot be None
+                - steps and token_usage must be initialized
+                - Model name must exist in token_usage dictionary
+                - Required token keys (input_tokens, output_tokens) must be present
+                - Entity-specific attributes (person/company) must exist for search_type
 
-        Note:
-            - Extraction maintains accuracy and avoids hallucination
-            - Missing information is marked as "Not Available"
-            - Current date is provided for temporal context in ISO format
-            - Output is validated against the appropriate schema (PersonSchema/CompanySchema)
-            - All extracted information is sourced from provided content only
-            - Token usage is tracked for monitoring and cost management purposes
-            - Uses callback mechanism to capture usage metadata during LLM invocation
+        Process Flow:
+            1. Comprehensive input validation and protective checks
+            2. Validates entity-specific requirements based on search_type
+            3. Appends NOTE_TAKER to processing steps for workflow tracking
+            4. Retrieves appropriate JSON schema based on search_type
+            5. Formats instruction template with:
+               - Search type and target entity information
+               - Source content for information extraction
+               - Current date in ISO format for temporal context
+               - JSON schema definition for structured output
+            6. Invokes LLM with structured JSON output format
+            7. Processes and validates LLM response:
+               - Parses JSON response from LLM
+               - Extracts 'value' fields from structured response
+               - Validates against PersonSchema or CompanySchema
+            8. Updates token usage metrics from callback metadata
+            9. Returns updated state with extracted notes and metrics
+
+        Implementation Details:
+            - Uses NOTE_TAKING_INSTRUCTIONS template for consistent LLM prompting
+            - Employs get_usage_metadata_callback() for accurate token tracking
+            - Enforces JSON object response format for structured output
+            - Maintains data accuracy by instructing LLM to avoid hallucination
+            - Handles missing information with "Not Available" placeholder values
+            - Provides current date context for temporal information extraction
+            - Validates output against predefined schemas (PersonSchema/CompanySchema)
+
+        Token Usage Tracking:
+            - Captures both input and output token consumption
+            - Updates state.token_usage[model_name] with incremental usage
+            - Uses callback mechanism to ensure accurate token counting
+            - Supports cost monitoring and usage analytics
+
+        Data Integrity:
+            - All extracted information must be sourced from provided content
+            - Missing or unclear information is explicitly marked as "Not Available"
+            - Schema validation ensures data structure consistency
+            - Input validation prevents processing of invalid state objects
         """
-        # Input validation and protective checks
-        if not isinstance(state, SearchState):
-            raise TypeError("state must be an instance of SearchState")
-        
-        if not hasattr(state, 'search_type') or not state.search_type:
-            raise ValueError("state.search_type is required and cannot be empty")
-        
-        if state.search_type not in [SearchType.PERSON, SearchType.COMPANY]:
-            raise ValueError(f"Invalid search_type: {state.search_type}. Must be '{SearchType.PERSON}' or '{SearchType.COMPANY}'")
-        
-        if not hasattr(state, 'source_str') or state.source_str is None:
-            raise ValueError("state.source_str is required and cannot be None")
-        
-        if not hasattr(state, 'steps') or state.steps is None:
-            raise ValueError("state.steps is required and cannot be None")
-        
-        if not hasattr(state, 'token_usage') or state.token_usage is None:
-            raise ValueError("state.token_usage is required and cannot be None")
-        
-        if self.model_name not in state.token_usage:
-            raise ValueError(f"Model '{self.model_name}' not found in state.token_usage")
-        
-        required_token_keys = ['input_tokens', 'output_tokens']
-        for key in required_token_keys:
-            if key not in state.token_usage[self.model_name]:
-                raise ValueError(f"Missing '{key}' in state.token_usage['{self.model_name}']")
-        
+
         # Validate that required entity information exists based on search type
         if state.search_type == SearchType.PERSON:
             if not hasattr(state, 'person') or state.person is None:
@@ -164,23 +158,18 @@ class NoteTaker:
                 raise ValueError("state.company is required when search_type is COMPANY")
 
         state.steps.append(Node.NOTE_TAKER)
-
-        info_str = generate_info_str(state=state)
-        note_taking_instructions_template = NOTE_TAKING_INSTRUCTIONS[state.search_type]
-        instructions = note_taking_instructions_template.format(info=info_str,
-                                                                content=state.source_str,
-                                                                today=datetime.date.today().isoformat())
-        # noinspection PyUnreachableCode
-        match state.search_type:
-            case SearchType.PERSON:
-                structured_llm = self.base_llm.with_structured_output(PersonSchema)
-            case SearchType.COMPANY:
-                structured_llm = self.base_llm.with_structured_output(CompanySchema)
-            case _:
-                raise RuntimeError(f"Unknown search type {state.search_type}")
+        json_schema = get_schema(state=state)
+        instructions = NOTE_TAKING_INSTRUCTIONS.format(search_type = state.search_type,
+                                                       info = state.topic,
+                                                       content = state.source_str,
+                                                       today = datetime.date.today().isoformat(),
+                                                       json_schema = json.dumps(json_schema['properties'], indent=2))
 
         with get_usage_metadata_callback() as cb:
-            state.notes = structured_llm.invoke(instructions)
+            results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
+            json_dict = json.loads(results.content)
+            json_dict = {k: v['value'] for k, v in json_dict.items()}
+            state.notes = PersonSchema(**json_dict) if state.search_type == SearchType.PERSON else CompanySchema(**json_dict)
             state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
             state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
         return state

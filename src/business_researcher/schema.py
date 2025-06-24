@@ -1,7 +1,5 @@
 from pydantic import BaseModel, Field
 
-from .enums import SearchType
-
 
 class PersonSchema(BaseModel):
     name: str = Field(description="Name and surname of the person")

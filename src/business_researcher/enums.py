@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import ClassVar
 from ai_common import NodeBase
 from pydantic import BaseModel, ConfigDict

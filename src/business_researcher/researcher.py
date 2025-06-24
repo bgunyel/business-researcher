@@ -33,27 +33,10 @@ class BusinessResearcher(GraphBase):
 
         self.graph = self.build_graph()
 
-
-        """
-        self.web_search = WebSearch(api_key = web_search_api_key,
-                                    search_category = config.search_category,
-                                    number_of_days_back = config.number_of_days_back,
-                                    include_raw_content = True)
-        """
-
-    """
-    def web_search_run(self, state: SearchState) -> SearchState:
-        unique_sources = self.web_search.search(search_queries=[query.search_query for query in state.search_queries])
-        source_str = format_sources(unique_sources=unique_sources, max_tokens_per_source=5000, include_raw_content=True)
-        state.steps.append(Node.WEB_SEARCH.value)
-        state.source_str = source_str
-        state.unique_sources = unique_sources
-        return state
-    """
-
     async def run(self, input_dict: dict[str, Any], config: RunnableConfig) -> dict[str, Any]:
         search_type = input_dict['search_type']
 
+        # noinspection PyUnreachableCode
         match search_type:
             case SearchType.PERSON:
                 person = Person(
@@ -75,8 +58,8 @@ class BusinessResearcher(GraphBase):
             company=company,
             is_review_successful=False,
             iteration=0,
-            notes={},
-            out_info={},
+            notes=None,
+            out_info=None,
             person=person,
             search_focus=[],
             search_queries=[],
@@ -89,19 +72,13 @@ class BusinessResearcher(GraphBase):
         )
         in_state.topic = generate_info_str(state = in_state)
 
-        for key in in_state.out_info.keys():
-            in_state.out_info[key]['value'] = None
-
         out_state = await self.graph.ainvoke(in_state, config)
-
         out_dict = {
-            'content': out_state['out_info'],
-            # 'unique_sources': {k: v for d in out_state['cumulative_unique_sources'] for k, v in d.items()},
+            'content': out_state['out_info'].model_dump(),
             'token_usage': out_state['token_usage'],
         }
 
         return out_dict
-
 
     def get_response(self, input_dict: dict[str, Any], verbose: bool = False):
 

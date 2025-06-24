@@ -6,7 +6,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.callbacks import get_usage_metadata_callback
 
 from ai_common import Queries, get_config_from_runnable
-from .utils import generate_info_str, get_schema
+from .utils import get_schema
 from ..enums import Node, SearchType
 from ..state import SearchState
 
@@ -126,43 +126,12 @@ class QueryWriter:
             - Search focus can limit schema properties to specific fields of interest
             - All queries are validated against the structured Queries output schema
         """
-        # Input validation and protective checks
-        if not isinstance(state, SearchState):
-            raise TypeError("state must be an instance of SearchState")
-        
-        if not hasattr(state, 'search_type') or not state.search_type:
-            raise ValueError("state.search_type is required and cannot be empty")
-        
-        if state.search_type not in [SearchType.PERSON, SearchType.COMPANY]:
-            raise ValueError(f"Invalid search_type: {state.search_type}. Must be '{SearchType.PERSON}' or '{SearchType.COMPANY}'")
-        
-        if not hasattr(state, 'steps') or state.steps is None:
-            raise ValueError("state.steps is required and cannot be None")
-        
-        if not hasattr(state, 'search_focus') or state.search_focus is None:
-            raise ValueError("state.search_focus is required and cannot be None")
-        
-        if not hasattr(state, 'search_queries') or state.search_queries is None:
-            raise ValueError("state.search_queries is required and cannot be None")
-        
-        if not hasattr(state, 'token_usage') or state.token_usage is None:
-            raise ValueError("state.token_usage is required and cannot be None")
-        
-        if self.model_name not in state.token_usage:
-            raise ValueError(f"Model '{self.model_name}' not found in state.token_usage")
-        
-        required_token_keys = ['input_tokens', 'output_tokens']
-        for key in required_token_keys:
-            if key not in state.token_usage[self.model_name]:
-                raise ValueError(f"Missing '{key}' in state.token_usage['{self.model_name}']")
 
         configurable = get_config_from_runnable(
             configuration_module_prefix=self.configuration_module_prefix,
             config=config
         )
         state.steps.append(Node.QUERY_WRITER)
-
-        info_str = generate_info_str(state = state)
         query_instructions_template = QUERY_WRITING_INSTRUCTIONS[state.search_type]
         schema = get_schema(state = state)
 
@@ -170,7 +139,7 @@ class QueryWriter:
             schema['required'] = state.search_focus
             schema['properties'] = {k: v for k, v in schema['properties'].items() if k in state.search_focus}
 
-        instructions = query_instructions_template.format(info=info_str,
+        instructions = query_instructions_template.format(info=state.topic,
                                                           schema=json.dumps(schema, indent=2),
                                                           number_of_queries=configurable.number_of_queries)
         with get_usage_metadata_callback() as cb:

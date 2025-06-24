@@ -6,7 +6,7 @@ from ..configuration import Configuration
 
 
 def is_review_successful(state: SearchState, config: RunnableConfig) -> Literal['successful', 'unsuccessful', 'max_iter']:
-    configurable = Configuration.from_runnable_config(config)
+    configurable = Configuration.from_runnable(runnable=config)
 
     if state.is_review_successful:
         return 'successful'

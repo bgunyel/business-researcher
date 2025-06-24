@@ -1,9 +1,7 @@
 from ai_common import format_sources
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.runnables import RunnableConfig
 from langchain_ollama import ChatOllama
 
-from .utils import generate_info_str
 from ..enums import Node, SearchType
 from ..state import SearchState
 
@@ -83,10 +81,8 @@ class LinkedinFinder:
             num_ctx=context_window_length,
         ) | JsonOutputParser()
 
-    def run(self, state: SearchState, config: RunnableConfig) -> SearchState:
-        # configurable = Configuration.from_runnable_config(config=config)
-        state.steps.append(Node.LINKEDIN_FINDER.value)
-        info_str = generate_info_str(state=state)
+    def run(self, state: SearchState) -> SearchState:
+        state.steps.append(Node.LINKEDIN_FINDER)
         linkedin_instructions_template = LINKEDIN_FIND_INSTRUCTIONS[state.search_type]
 
         unique_sources = {}
@@ -94,13 +90,13 @@ class LinkedinFinder:
             url = value['url']
 
             if (
-                    ((state.search_type == SearchType.PERSON.value) and ('linkedin.com/in/' in url)) or
-                    ((state.search_type == SearchType.COMPANY.value) and ('linkedin.com/company/' in url))
+                    ((state.search_type == SearchType.PERSON) and ('linkedin.com/in/' in url)) or
+                    ((state.search_type == SearchType.COMPANY) and ('linkedin.com/company/' in url))
             ):
                 content = value['content']
                 raw_content = value['raw_content'] if value['raw_content'] is not None else ''
                 content += raw_content
-                instructions = linkedin_instructions_template.format(info=info_str, url=url, url_content=content)
+                instructions = linkedin_instructions_template.format(info=state.topic, url=url, url_content=content)
                 results = self.linkedin_llm.invoke(instructions)
 
                 if results['result'] == 'YES':

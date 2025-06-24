@@ -64,8 +64,8 @@ def main():
 
     examples = {
         'person': {
-            "name": "Harrison Chase",
-            "company": 'LangChain',
+            "name": "Ziya Özçelik",
+            "company": 'Sahibinden',
             'search_type': SearchType.PERSON
         },
         'company': {
@@ -74,12 +74,14 @@ def main():
         }
     }
 
-    input_dict = examples['company']
+    input_dict = examples['person']
     rich.print(input_dict)
 
     event_loop = asyncio.new_event_loop()
     out_dict = event_loop.run_until_complete(business_researcher.run(input_dict=input_dict, config=config))
     event_loop.close()
+
+    rich.print(out_dict['content'])
 
     total_cost = 0
     for model_type, params in llm_config.items():
@@ -91,10 +93,6 @@ def main():
         print(f'Cost for {model_provider}: {model} --> {cost:.4f} USD')
     print(f'Total Token Usage Cost: {total_cost:.4f} USD')
     print('\n\n\n')
-    print(out_dict['content'])
-
-    dummy = -32
-
 
 
 if __name__ == '__main__':

@@ -6,6 +6,7 @@ from ..schema import PersonSchema, CompanySchema
 
 
 def generate_info_str(state: SearchState):
+    # noinspection PyUnreachableCode
     match state.search_type:
         case SearchType.PERSON:
             search_object = state.person
@@ -30,6 +31,7 @@ def generate_schema_str(schema: dict[str, Any]) -> str:
 
 
 def get_schema(state: SearchState) -> dict[str, Any]:
+    # noinspection PyUnreachableCode
     match state.search_type:
         case SearchType.PERSON:
             schema = PersonSchema.model_json_schema()
