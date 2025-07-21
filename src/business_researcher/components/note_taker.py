@@ -52,7 +52,9 @@ Please make sure that:
 <Task>
 * Think carefully about the provided context first.
 * Then extract the necessary information from the provided sources, according to the given JSON format.
-* When a particular information is missing in the given sources, return "Not Available" for that information.
+* When a particular information is missing in the given sources, 
+    - If the type of the required information is "string, "return "Not Available".
+    - If the type of the required information is "array", return [] (empty list).
 * Return your answer in the given JSON format. 
 </Task>
 """

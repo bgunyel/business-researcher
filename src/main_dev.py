@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from config import settings
 from src.business_researcher import BusinessResearcher, SearchType
-from ai_common import LlmServers, PRICE_USD_PER_MILLION_TOKENS
+from ai_common import LlmServers, calculate_token_cost
 
 
 def main():
@@ -16,12 +16,12 @@ def main():
             'model_provider': LlmServers.GROQ.value,
             'api_key': settings.GROQ_API_KEY,
             'model_args': {
+                'service_tier': "auto",
                 'temperature': 0,
                 'max_retries': 5,
                 'max_tokens': 32768,
                 'model_kwargs': {
                     'top_p': 0.95,
-                    'service_tier': "auto",
                 }
             }
         },
@@ -30,12 +30,12 @@ def main():
             'model_provider': LlmServers.GROQ.value,
             'api_key': settings.GROQ_API_KEY,
             'model_args': {
+                'service_tier': "auto",
                 'temperature': 0,
                 'max_retries': 5,
                 'max_tokens': 32768,
                 'model_kwargs': {
                     'top_p': 0.95,
-                    'service_tier': "auto",
                 }
             }
         }
@@ -53,6 +53,12 @@ def main():
             'number_of_days_back': 1e6,
             'number_of_queries': 3,
             'search_category': 'general',
+            'search_depth': 'basic',
+            'chunks_per_source': 3,
+            'include_images': False,
+            'include_image_descriptions': False,
+            'include_favicon': False,
+            'strip_thinking_tokens': True,
         }
     }
 
@@ -64,17 +70,17 @@ def main():
 
     examples = {
         'person': {
-            "name": "Ziya Özçelik",
-            "company": 'Sahibinden',
+            "name": "Vinitha Thiyagarajan Upaassana",
+            "company": 'Perceive Now',
             'search_type': SearchType.PERSON
         },
         'company': {
-            "name": "Groq",
+            "name": "Perceive Now",
             'search_type': SearchType.COMPANY
         }
     }
 
-    input_dict = examples['person']
+    input_dict = examples['company']
     rich.print(input_dict)
 
     event_loop = asyncio.new_event_loop()
@@ -83,15 +89,11 @@ def main():
 
     rich.print(out_dict['content'])
 
-    total_cost = 0
-    for model_type, params in llm_config.items():
-        model_provider = params['model_provider']
-        model = params['model']
-        price_dict = PRICE_USD_PER_MILLION_TOKENS[model_provider][model]
-        cost = sum([price_dict[k] * out_dict['token_usage'][model][k] for k in price_dict.keys()]) / 1e6
-        total_cost += cost
-        print(f'Cost for {model_provider}: {model} --> {cost:.4f} USD')
+    cost_list, total_cost = calculate_token_cost(llm_config=llm_config, token_usage=out_dict['token_usage'])
     print(f'Total Token Usage Cost: {total_cost:.4f} USD')
+    for item in cost_list:
+        print(f"\t* {item['model_provider']}: {item['model']} --> {item['cost']:.4f} USD")
+
     print('\n\n\n')
 
 

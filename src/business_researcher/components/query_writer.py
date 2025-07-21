@@ -5,7 +5,7 @@ from langchain.chat_models import init_chat_model
 from langchain_core.runnables import RunnableConfig
 from langchain_core.callbacks import get_usage_metadata_callback
 
-from ai_common import Queries, get_config_from_runnable
+from ai_common import get_config_from_runnable, SearchQuery
 from .utils import get_schema
 from ..enums import Node, SearchType
 from ..state import SearchState
@@ -23,6 +23,7 @@ You will generate exactly {number_of_queries} queries.
 {schema}
 </schema>
 
+<Requirements>
 When generating the search queries, ensure they:
 1. Make sure to look up the right name.
 2. Make sure to include the email in every query if email is provided.
@@ -34,9 +35,32 @@ Your queries should be:
 - Specific enough to avoid irrelevant results
 - Targeted to gather information according to the schema
 - Diverse enough to cover all aspects of the schema
+</Requirements>
 
+<Format>
+* Format your response as a JSON object with one field:
+    - queries: Queries you generate according to the given topic.
+* Each query should have the following three fields:
+    - search_query: Text of the query.
+    - aspect: Which aspect of the topic the query aims to cover.
+    - rationale: Your reasoning.    
+
+Return the queries in JSON format:
+{{
+    queries: [
+            {{
+                "search_query": "string",
+                "aspect": "string",
+                "rationale": "string"
+            }}
+    ]
+}}
+</Format>
+
+<Task>
 It is very important that you generate exactly {number_of_queries} queries.
 Generate targeted web search queries that will gather specific information about the given person according to the given schema.
+</Task>
 """
 
 COMPANY_QUERY_WRITING_INSTRUCTIONS = """
@@ -51,6 +75,7 @@ You will generate exactly {number_of_queries} queries.
 {schema}
 </schema>
 
+<Requirements>
 When generating the search queries, ensure they:
 1. Focus on finding factual, up-to-date company information
 2. Target official sources, news, and reliable business databases
@@ -61,9 +86,32 @@ Your queries should be:
 - Specific enough to avoid irrelevant results
 - Targeted to gather information according to the schema
 - Diverse enough to cover all aspects of the schema
+</Requirements>
 
+<Format>
+* Format your response as a JSON object with one field:
+    - queries: Queries you generate according to the given topic.
+* Each query should have the following three fields:
+    - search_query: Text of the query.
+    - aspect: Which aspect of the topic the query aims to cover.
+    - rationale: Your reasoning.    
+
+Return the queries in JSON format:
+{{
+    queries: [
+            {{
+                "search_query": "string",
+                "aspect": "string",
+                "rationale": "string"
+            }}
+    ]
+}}
+</Format>
+
+<Task>
 It is very important that you generate exactly {number_of_queries} queries.
 Generate targeted web search queries that will gather specific information about the given company according to the given schema.
+</Task>
 """
 
 QUERY_WRITING_INSTRUCTIONS = {
@@ -76,13 +124,13 @@ class QueryWriter:
     def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
         self.model_name = model_params['model']
         self.configuration_module_prefix: Final = configuration_module_prefix
-        base_llm = init_chat_model(
+        self.base_llm = init_chat_model(
             model=model_params['model'],
             model_provider=model_params['model_provider'],
             api_key=model_params['api_key'],
             **model_params['model_args']
         )
-        self.structured_llm = base_llm.with_structured_output(Queries)
+        # self.structured_llm = base_llm.with_structured_output(Queries)
 
     def run(self, state: SearchState, config: RunnableConfig) -> SearchState:
         """
@@ -143,9 +191,10 @@ class QueryWriter:
                                                           schema=json.dumps(schema, indent=2),
                                                           number_of_queries=configurable.number_of_queries)
         with get_usage_metadata_callback() as cb:
-            results = self.structured_llm.invoke(instructions)
-            state.search_queries = results.queries
+            results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
             state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
             state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
+            json_dict = json.loads(results.content)
+            state.search_queries = [SearchQuery(**q) for q in json_dict['queries']]
 
         return state
