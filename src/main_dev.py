@@ -52,13 +52,6 @@ def main():
             'max_tokens_per_source': 10000,
             'number_of_days_back': 1e6,
             'number_of_queries': 3,
-            'search_category': 'general',
-            'search_depth': 'basic',
-            'chunks_per_source': 3,
-            'include_images': False,
-            'include_image_descriptions': False,
-            'include_favicon': False,
-            'strip_thinking_tokens': True,
         }
     }
 

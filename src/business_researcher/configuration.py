@@ -12,7 +12,7 @@ class Configuration(CfgBase):
     search_category: TavilySearchCategory = Field(default="general")
     search_depth: TavilySearchDepth = Field(default="basic")
     chunks_per_source: int = Field(default=3, gt=0)
-    include_images: bool = False
-    include_image_descriptions: bool = False
-    include_favicon: bool = False
-    strip_thinking_tokens: bool  # = True
+    include_images: bool = Field(default=False)
+    include_image_descriptions: bool = Field(default=False)
+    include_favicon: bool = Field(default=False)
+    strip_thinking_tokens: bool = Field(default=True)
