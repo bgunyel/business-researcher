@@ -63,8 +63,8 @@ def main():
 
     examples = {
         'person': {
-            "name": "Vinitha Thiyagarajan Upaassana",
-            "company": 'Perceive Now',
+            "name": "Harrison Chase",
+            "company": 'Langchain',
             'search_type': SearchType.PERSON
         },
         'company': {
@@ -73,7 +73,7 @@ def main():
         }
     }
 
-    input_dict = examples['company']
+    input_dict = examples['person']
     rich.print(input_dict)
 
     event_loop = asyncio.new_event_loop()
