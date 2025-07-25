@@ -15,8 +15,8 @@ class PersonSchema(BaseModel):
 
 
 class CompanySchema(BaseModel):
-    company_name: str = Field(description="Official name of the company")
-    verified_company: bool = Field(description="Confirmation whether this is the intended company, not a similarly named one")
+    name: str = Field(description="Official name of the company")
+    is_verified: bool = Field(description="Confirmation whether this is the intended company, not a similarly named one")
     website: str = Field(description="Company's official website URL")
     linkedin_profile: str = Field(description="Linkedin URL of the company")
     crunchbase_profile: str = Field(description="Crunchbase profile URL of the company")

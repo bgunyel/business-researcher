@@ -68,12 +68,12 @@ def main():
             'search_type': SearchType.PERSON
         },
         'company': {
-            "name": "Perceive Now",
+            "name": "Langchain",
             'search_type': SearchType.COMPANY
         }
     }
 
-    input_dict = examples['person']
+    input_dict = examples['company']
     rich.print(input_dict)
 
     event_loop = asyncio.new_event_loop()
