@@ -8,7 +8,7 @@ from langgraph.graph import START, END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
 
-from .components import QueryWriter, NoteTaker, NoteReviewer, is_review_successful, generate_info_str
+from .components import QueryWriter, FactChecker, NoteTaker, NoteReviewer, is_review_successful, generate_info_str
 from .configuration import Configuration
 from .enums import SearchType, Node
 from .state import SearchState, Person, Company
@@ -28,6 +28,8 @@ class BusinessResearcher(GraphBase):
                                              configuration_module_prefix = self.configuration_module_prefix)
         self.note_taker = NoteTaker(model_params=llm_config['reasoning_model'],
                                     configuration_module_prefix=self.configuration_module_prefix)
+        self.fact_checker = FactChecker(model_params=llm_config['reasoning_model'],
+                                        configuration_module_prefix=self.configuration_module_prefix)
         self.note_reviewer = NoteReviewer(model_params=llm_config['reasoning_model'],
                                           configuration_module_prefix=self.configuration_module_prefix)
 
@@ -106,13 +108,15 @@ class BusinessResearcher(GraphBase):
         workflow.add_node(node=Node.QUERY_WRITER, action=self.query_writer.run)
         workflow.add_node(node=Node.WEB_SEARCH, action=self.web_search_node.run)
         workflow.add_node(node=Node.NOTE_TAKER, action=self.note_taker.run)
+        workflow.add_node(node=Node.FACT_CHECKER, action=self.fact_checker.run)
         workflow.add_node(node=Node.NOTE_REVIEWER, action=self.note_reviewer.run)
 
         ## Edges
         workflow.add_edge(start_key=START, end_key=Node.QUERY_WRITER)
         workflow.add_edge(start_key=Node.QUERY_WRITER, end_key=Node.WEB_SEARCH)
         workflow.add_edge(start_key=Node.WEB_SEARCH, end_key=Node.NOTE_TAKER)
-        workflow.add_edge(start_key=Node.NOTE_TAKER, end_key=Node.NOTE_REVIEWER)
+        workflow.add_edge(start_key=Node.NOTE_TAKER, end_key=Node.FACT_CHECKER)
+        workflow.add_edge(start_key=Node.FACT_CHECKER, end_key=Node.NOTE_REVIEWER)
 
         workflow.add_conditional_edges(
             source=Node.NOTE_REVIEWER,

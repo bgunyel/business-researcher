@@ -47,7 +47,7 @@ def main():
     config = {
         "configurable": {
             'thread_id': str(uuid4()),
-            'max_iterations': 3,
+            'max_iterations': 5,
             'max_results_per_query': 4,
             'max_tokens_per_source': 10000,
             'number_of_days_back': 1e6,
