@@ -18,6 +18,7 @@ Utility Functions:
     - is_review_successful: Checks if review criteria are met
 """
 
+from .fact_checker import FactChecker
 from .linkedin_finder import LinkedinFinder
 from .note_reviewer import NoteReviewer, ReviewOutput
 from .note_taker import NoteTaker
@@ -26,6 +27,7 @@ from .routing import is_review_successful
 from .utils import generate_info_str, generate_schema_str, get_schema
 
 __all__ = [
+    "FactChecker",
     "LinkedinFinder",
     "NoteReviewer", 
     "ReviewOutput",

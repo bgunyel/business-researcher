@@ -12,6 +12,7 @@ class Node(NodeBase):
     model_config = ConfigDict(frozen=True)
 
     # Class attributes
+    FACT_CHECKER: ClassVar[str] = 'fact_checker'
     LINKEDIN_FINDER: ClassVar[str] = 'linkedin_finder'
     NOTE_TAKER: ClassVar[str] = 'note_taker'
     NOTE_REVIEWER: ClassVar[str] = 'note_reviewer'
