@@ -1,3 +1,4 @@
+import os
 import asyncio
 import datetime
 import time
@@ -10,6 +11,9 @@ from ai_common import LlmServers, calculate_token_cost
 
 
 def main():
+    os.environ['LANGSMITH_API_KEY'] = settings.LANGSMITH_API_KEY
+    os.environ['LANGSMITH_TRACING'] = settings.LANGSMITH_TRACING
+
     llm_config = {
         'language_model': {
             'model': 'llama-3.3-70b-versatile',
@@ -47,6 +51,7 @@ def main():
     config = {
         "configurable": {
             'thread_id': str(uuid4()),
+            'recursion_limit': 100,
             'max_iterations': 5,
             'max_results_per_query': 4,
             'max_tokens_per_source': 10000,
@@ -68,12 +73,12 @@ def main():
             'search_type': SearchType.PERSON
         },
         'company': {
-            "name": "Langchain",
+            "name": "Perplexity",
             'search_type': SearchType.COMPANY
         }
     }
 
-    input_dict = examples['person']
+    input_dict = examples['company']
     rich.print(input_dict)
 
     event_loop = asyncio.new_event_loop()

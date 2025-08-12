@@ -17,6 +17,7 @@ class PersonSchema(BaseModel):
 class CompanySchema(BaseModel):
     name: str = Field(description="Official name of the company")
     is_verified: bool = Field(description="Confirmation whether this is the intended company, not a similarly named one")
+    alternative_names: list[str] = Field(description="Alternative names of the company. e.g. Perplexity AI Inc., Perplexity AI, Perplexity")
     website: str = Field(description="Company's official website URL")
     linkedin_profile: str = Field(description="Linkedin URL of the company")
     crunchbase_profile: str = Field(description="Crunchbase profile URL of the company")

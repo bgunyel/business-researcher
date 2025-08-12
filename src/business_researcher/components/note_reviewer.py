@@ -31,23 +31,38 @@ Today's date is:
 {today}
 </today>
 
-TASK:
-Analyze if all required fields are present and sufficiently populated. Consider:
-1. Are any required fields missing?
-2. Are any fields incomplete or containing uncertain information?
-3. Are there fields with placeholder values or "unknown" markers?
-4. Are there fields populated with outdated information?
+<Format>
+* Format your response as a JSON object.
+* The JSON object should have the following fields:    
+    - "is_satisfactory": (Boolean decision) True if all required fields are well populated, False otherwise.
+    - "missing_fields": (List of string) List of field names that are missing or incomplete.    
+    - "reasoning": (string) Brief explanation of the assessment.
+</Format>
+
+<Requirements>
+* A field is marked as missing if that field is present in the schema but missing in the extracted information.
+* A field is marked as missing if that field is incomplete or containing uncertain information.
+* A field is marked as missing if that field contains placeholder values or "unknown" markers.
+* A field is marked as missing if that field contains a value filled with a masked value (e.g. h***@langchain.com).
+* A field is marked as missing if that field is populated with outdated information.  
+</Requirements>
+
+<Task>:
+* Analyze if all required fields are present and sufficiently populated.
+* Return your answer in the given JSON format.
+</Task>
 """
 
-
+"""
 class ReviewOutput(BaseModel):
     is_satisfactory: bool = Field(
-        description="True if all required fields are well populated, False otherwise"
+        description='True if all required fields are well populated, False otherwise'
     )
     missing_fields: list[str] = Field(
-        description="List of field names that are missing or incomplete"
+        description='List of field names that are missing or incomplete'
     )
-    reasoning: str = Field(description="Brief explanation of the assessment")
+    reasoning: str = Field(description='Brief explanation of the assessment')
+"""
 
 
 class NoteReviewer:
@@ -60,7 +75,7 @@ class NoteReviewer:
             api_key=model_params['api_key'],
             **model_params['model_args']
         )
-        self.structured_llm = self.base_llm.with_structured_output(ReviewOutput)
+        # self.structured_llm = self.base_llm.with_structured_output(ReviewOutput)
 
 
     def run(self, state: SearchState) -> SearchState:
@@ -131,8 +146,7 @@ class NoteReviewer:
             for key in state.search_focus:
                 setattr(state.out_info, key, getattr(state.notes, key))
 
-        state.steps.append(Node.NOTE_REVIEWER)
-        state.iteration += 1
+
 
         schema = get_schema(state=state)
         instructions = REVIEW_PROMPT.format(schema=json.dumps(schema, indent=2),
@@ -140,9 +154,20 @@ class NoteReviewer:
                                             today=datetime.date.today().isoformat())
 
         with get_usage_metadata_callback() as cb:
-            results = self.structured_llm.invoke(instructions)
+            # results = self.structured_llm.invoke(instructions)
+            results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
+            json_dict = json.loads(results.content)
+
             state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
             state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
-        state.is_review_successful = results.is_satisfactory
-        state.search_focus = results.missing_fields
+        state.is_review_successful = json_dict['is_satisfactory']
+
+        if state.iteration == 0:
+            state.search_focus = json_dict['missing_fields']
+        else:
+            state.search_focus = [x for x in json_dict['missing_fields'] if x in state.search_focus]
+
+        # Leave these two steps as the last before return.
+        state.steps.append(Node.NOTE_REVIEWER)
+        state.iteration += 1
         return state

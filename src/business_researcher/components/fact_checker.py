@@ -1,6 +1,7 @@
 import datetime
 from typing import Any, Final
 import json
+import copy
 
 from langchain_core.callbacks import get_usage_metadata_callback
 from langchain.chat_models import init_chat_model
@@ -76,20 +77,33 @@ class FactChecker:
 
     def run(self, state: SearchState) -> SearchState:
         state.steps.append(Node.FACT_CHECKER)
-        json_schema = get_schema(state=state)
+        json_schema_base = get_schema(state=state)
+
+        if state.iteration == 0:
+            notes = state.notes.model_dump() # notes will be dict
+            json_schema = json_schema_base['properties']
+        else:
+            notes = {key: getattr(state.notes, key) for key in state.search_focus}
+            json_schema = {key: json_schema_base['properties'][key] for key in state.search_focus}
 
         instructions = FACT_CHECK_INSTRUCTIONS.format(search_type=state.search_type,
                                                       info=state.topic,
-                                                      notes=json.dumps(state.notes.model_dump(), indent=2),
+                                                      notes=json.dumps(notes, indent=2),
                                                       content=state.source_str,
                                                       today=datetime.date.today().isoformat(),
-                                                      json_schema=json.dumps(json_schema['properties'], indent=2))
+                                                      json_schema=json.dumps(json_schema, indent=2))
 
         with get_usage_metadata_callback() as cb:
             results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
             json_dict = json.loads(results.content)
-            json_dict = {k: v['value'] if v['is_fact'] is True else 'Not Available' for k, v in json_dict.items()}
-            state.notes = PersonSchema(**json_dict) if state.search_type == SearchType.PERSON else CompanySchema(**json_dict)
+            for k in notes.keys():
+                if json_dict[k]['is_fact'] is False:
+                    match notes[k]:
+                        case str():
+                            setattr(state.notes, k, 'Not Available')
+                        case list():
+                            setattr(state.notes, k, [])
+
             state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
             state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
 
