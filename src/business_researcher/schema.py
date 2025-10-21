@@ -27,6 +27,7 @@ class CompanySchema(BaseModel):
     ceo: str = Field(description="Name of the CEO of the company")
     key_executives: list[str] = Field(description="Key executive people in the company. Only names and surnames, no titles")
     org_chart_summary: str = Field(description="Brief description of organizational structure")
+    number_of_employees: str = Field(description="Total number of employees in the company. Only the number, no explanation.")
     main_products: list[str] = Field(description="List of main products available in the company")
     services: list[str] = Field(description="List of services available in the company")
     company_summary: str = Field(description="Summary of the most important company information")

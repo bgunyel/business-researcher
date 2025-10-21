@@ -5,7 +5,6 @@ import datetime
 
 from langchain_core.callbacks import get_usage_metadata_callback
 from langchain.chat_models import init_chat_model
-from pydantic import BaseModel, Field
 
 from ..state import SearchState
 from ..enums import Node, SearchType
@@ -53,18 +52,6 @@ Today's date is:
 </Task>
 """
 
-"""
-class ReviewOutput(BaseModel):
-    is_satisfactory: bool = Field(
-        description='True if all required fields are well populated, False otherwise'
-    )
-    missing_fields: list[str] = Field(
-        description='List of field names that are missing or incomplete'
-    )
-    reasoning: str = Field(description='Brief explanation of the assessment')
-"""
-
-
 class NoteReviewer:
     def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
         self.model_name = model_params['model']
@@ -74,9 +61,9 @@ class NoteReviewer:
             model_provider=model_params['model_provider'],
             api_key=model_params['api_key'],
             **model_params['model_args']
-        )
-        # self.structured_llm = self.base_llm.with_structured_output(ReviewOutput)
-
+        ).with_retry(
+            stop_after_attempt = model_params['max_llm_retries'],
+            )
 
     def run(self, state: SearchState) -> SearchState:
         """

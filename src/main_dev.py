@@ -5,9 +5,11 @@ import time
 import rich
 from uuid import uuid4
 
+from langchain_core.runnables import RunnableConfig
+
 from config import settings
 from src.business_researcher import BusinessResearcher, SearchType
-from ai_common import LlmServers, calculate_token_cost
+from ai_common import LlmServers, calculate_token_cost, TavilySearchDepth
 
 
 def main():
@@ -19,6 +21,7 @@ def main():
             'model': 'llama-3.3-70b-versatile',
             'model_provider': LlmServers.GROQ.value,
             'api_key': settings.GROQ_API_KEY,
+            'max_llm_retries': 3,
             'model_args': {
                 'service_tier': "auto",
                 'temperature': 0,
@@ -30,14 +33,16 @@ def main():
             }
         },
         'reasoning_model': {
-            'model': 'qwen/qwen3-32b', # 'deepseek-r1-distill-llama-70b',
+            'model': 'openai/gpt-oss-120b',  # 'qwen/qwen3-32b',  # 'deepseek-r1-distill-llama-70b',
             'model_provider': LlmServers.GROQ.value,
             'api_key': settings.GROQ_API_KEY,
+            'max_llm_retries': 3,
             'model_args': {
                 'service_tier': "auto",
                 'temperature': 0,
                 'max_retries': 5,
-                'max_tokens': 32768,
+                'max_tokens': 65536,  # for deepseek and qwen3: 32768,
+                'reasoning_effort': 'medium',  # only for gpt-oss models: ['high', 'medium', 'low']
                 'model_kwargs': {
                     'top_p': 0.95,
                 }
@@ -48,17 +53,20 @@ def main():
     language_model = llm_config['language_model'].get('model', '')
     reasoning_model = llm_config['reasoning_model'].get('model', '')
 
-    config = {
-        "configurable": {
+    config = RunnableConfig(
+        recursion_limit=100,
+        configurable = {
             'thread_id': str(uuid4()),
-            'recursion_limit': 100,
             'max_iterations': 5,
-            'max_results_per_query': 4,
+            'max_results_per_query': 5,
             'max_tokens_per_source': 10000,
-            'number_of_days_back': 1e6,
+            'number_of_days_back': 360,
             'number_of_queries': 3,
-        }
-    }
+            'search_depth': 'advanced',
+            },
+        )
+
+
 
     print(f'Language Model: {language_model}')
     print(f'Reasoning Model: {reasoning_model}')
@@ -68,12 +76,12 @@ def main():
 
     examples = {
         'person': {
-            "name": "Harrison Chase",
-            "company": 'Langchain',
+            "name": "William Gaybrick",
+            "company": 'Stripe',
             'search_type': SearchType.PERSON
         },
         'company': {
-            "name": "Perplexity",
+            "name": "Stripe",
             'search_type': SearchType.COMPANY
         }
     }

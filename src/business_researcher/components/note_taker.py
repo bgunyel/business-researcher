@@ -68,7 +68,9 @@ class NoteTaker:
             model_provider=model_params['model_provider'],
             api_key=model_params['api_key'],
             **model_params['model_args']
-        )
+        ).with_retry(
+            stop_after_attempt = model_params['max_llm_retries'],
+            )
 
 
     def run(self, state: SearchState) -> SearchState:
