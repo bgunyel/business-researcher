@@ -4,6 +4,7 @@ import json
 
 from langchain_core.callbacks import get_usage_metadata_callback
 from langchain.chat_models import init_chat_model
+from pydantic import create_model
 
 from .utils import get_schema
 from ..enums import SearchType, Node
@@ -33,17 +34,6 @@ Please make sure that:
 1. You extract information from the provided sources.
 2. You maintain accuracy of the original content. Do not hallucinate.
 
-<Format>
-* Format your response as a JSON object.
-* Every item in the JSON object should have the following fields:
-    - "description": The description given in the JSON schema.
-    - "title": The title given in the JSON schema.
-    - "type": The type given in the JSON schema.
-    - "value": The value of the information you extract from the given sources.
-
-{json_schema}
-</Format>
-
 <Requirements> 
 * Please note when important information appears to be missing or unclear.
 * When a particular information is missing in the given sources, return "Not Available" for that information.
@@ -51,11 +41,10 @@ Please make sure that:
 
 <Task>
 * Think carefully about the provided context first.
-* Then extract the necessary information from the provided sources, according to the given JSON format.
+* Then extract the necessary information from the provided sources.
 * When a particular information is missing in the given sources, 
     - If the type of the required information is "string, "return "Not Available".
-    - If the type of the required information is "array", return [] (empty list).
-* Return your answer in the given JSON format. 
+    - If the type of the required information is "array", return [] (empty list). 
 </Task>
 """
 
@@ -68,10 +57,8 @@ class NoteTaker:
             model_provider=model_params['model_provider'],
             api_key=model_params['api_key'],
             **model_params['model_args']
-        ).with_retry(
-            stop_after_attempt = model_params['max_llm_retries'],
-            )
-
+        )
+        self.model_params = model_params
 
     def run(self, state: SearchState) -> SearchState:
         """
@@ -162,18 +149,26 @@ class NoteTaker:
                 raise ValueError("state.company is required when search_type is COMPANY")
 
         state.steps.append(Node.NOTE_TAKER)
-        json_schema = get_schema(state=state)
+        notes_type = PersonSchema if state.search_type == SearchType.PERSON else CompanySchema
+        # json_schema = get_schema(state=state)
         instructions = NOTE_TAKING_INSTRUCTIONS.format(search_type = state.search_type,
                                                        info = state.topic,
                                                        content = state.source_str,
-                                                       today = datetime.date.today().isoformat(),
-                                                       json_schema = json.dumps(json_schema['properties'], indent=2))
+                                                       today = datetime.date.today().isoformat())
+        structured_llm = self.base_llm.with_structured_output(
+            schema = notes_type,
+            include_raw = True,
+        ).with_retry(
+            stop_after_attempt = self.model_params['max_llm_retries']
+            )
 
         with get_usage_metadata_callback() as cb:
-            results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
-            json_dict = json.loads(results.content)
-            json_dict = {k: v['value'] for k, v in json_dict.items()}
-            state.notes = PersonSchema(**json_dict) if state.search_type == SearchType.PERSON else CompanySchema(**json_dict)
+            out_dict = structured_llm.invoke(instructions, response_format={"type": "json_object"})
+            state.notes = out_dict['parsed']
+            # results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
+            # json_dict = json.loads(results.content)
+            # json_dict = {k: v['value'] for k, v in json_dict.items()}
+            # state.notes = PersonSchema(**json_dict) if state.search_type == SearchType.PERSON else CompanySchema(**json_dict)
             state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
             state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
         return state
