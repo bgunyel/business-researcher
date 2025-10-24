@@ -12,13 +12,8 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "ai-common @ git+https://github.com/bgunyel/ai-common.git@main",
-    "langchain==1.0.1",
-    "langchain-groq==1.0.0",
-    "langchain-ollama==1.0.0",
-    "langchain-openai==1.0.0",
     "pydantic-settings==2.11.0",
     "rich==14.2.0",
-    "tavily-python==0.7.12",
 ]
 
 [project.scripts]

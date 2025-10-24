@@ -1,16 +1,12 @@
 import datetime
 from typing import Any, Final
-import json
 
-from langchain_core.callbacks import get_usage_metadata_callback
 from langchain.chat_models import init_chat_model
-from pydantic import create_model
+from langchain_core.callbacks import get_usage_metadata_callback
 
-from .utils import get_schema
 from ..enums import SearchType, Node
-from ..state import SearchState
 from ..schema import PersonSchema, CompanySchema
-
+from ..state import SearchState
 
 NOTE_TAKING_INSTRUCTIONS = """
 Your goal is to extract information about a {search_type}, using the provided sources.
@@ -163,7 +159,7 @@ class NoteTaker:
             )
 
         with get_usage_metadata_callback() as cb:
-            out_dict = structured_llm.invoke(instructions, response_format={"type": "json_object"})
+            out_dict = structured_llm.invoke(instructions)
             state.notes = out_dict['parsed']
             # results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
             # json_dict = json.loads(results.content)

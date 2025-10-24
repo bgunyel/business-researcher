@@ -84,17 +84,20 @@ class BusinessResearcher(GraphBase):
 
     def get_response(self, input_dict: dict[str, Any], verbose: bool = False):
 
-        config = {
-            "configurable": {
+        config = RunnableConfig(
+            recursion_limit=100,
+            configurable={
                 'thread_id': str(uuid4()),
-                'max_iterations': 3,
-                'max_results_per_query': 4,
+                'max_iterations': 5,
+                'max_results_per_query': 5,
                 'max_tokens_per_source': 10000,
-                'number_of_days_back': 1e6,
+                'number_of_days_back': 360,
                 'number_of_queries': 3,
-                'search_category': 'general',
-            }
-        }
+                'search_depth': 'advanced',
+            },
+        )
+
+
         event_loop = asyncio.new_event_loop()
         out_dict = event_loop.run_until_complete(self.run(input_dict=input_dict["topic"], config=config))
         event_loop.close()
@@ -102,7 +105,7 @@ class BusinessResearcher(GraphBase):
 
 
     def build_graph(self):
-        workflow = StateGraph(SearchState, config_schema=Configuration)
+        workflow = StateGraph(SearchState, context_schema=Configuration)
 
         ## Nodes
         workflow.add_node(node=Node.QUERY_WRITER, action=self.query_writer.run)

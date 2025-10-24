@@ -1,16 +1,14 @@
 import datetime
-from typing import Any, Final
 import json
-import copy
+from typing import Any, Final
 
-from langchain_core.callbacks import get_usage_metadata_callback
 from langchain.chat_models import init_chat_model
+from langchain_core.callbacks import get_usage_metadata_callback
+from pydantic import BaseModel, Field, create_model
 
 from .utils import get_schema
-from ..enums import SearchType, Node
+from ..enums import Node
 from ..state import SearchState
-from ..schema import PersonSchema, CompanySchema
-
 
 FACT_CHECK_INSTRUCTIONS = """
 Your goal is to check whether the given information about a {search_type} is grounded, using the provided sources.
@@ -35,19 +33,8 @@ Today's date is:
 {today}
 </today>
 
-<Format>
-* Format your response as a JSON object.
-* Every item in the JSON object should have the following fields:    
-    - "title": The title of the given information that is checked for factfulness.    
-    - "value": The value of the given information that is checked for factfulness.
-    - "is_fact": Boolean decision: True if the given information is a fact according to the given source, else False.
-    - "rationale": Your detailed rationale in deciding whether the given information is a fact or not.
-    
-{json_schema}
-</Format>
-
 <Requirements> 
-* Every information item in the json schema should be checked for factfulness.
+* Every item in the given information should be checked for factfulness.
 * If a value for a given field is missing, or filled with a filler value (e.g. "Not Available", "NA", etc), return False for the factfulness value.
 * Any given information field can be regarded as fact only if:
     - the information is directly written in the given source, or
@@ -58,10 +45,15 @@ Today's date is:
 <Task>
 * Think carefully about the provided sources.
 * Think carefully about the provided information, and the fields.
-* For each information field, check whether the information field is a fact, according to the source, or not.
-* Return your answer in the given JSON format. 
+* For each information field, check whether the information field is a fact, according to the source, or not. 
 </Task>
 """
+
+class AtomicFactfulness(BaseModel):
+    title: str = Field(description="The title of the given information that is checked for factfulness.")
+    value: Any = Field(description="The value of the given information that is checked for factfulness.")
+    is_fact: bool = Field(description="Boolean decision: True if the given information is a fact according to the given source, else False.")
+    rationale: str = Field(description="Your detailed rationale in deciding whether the given information is a fact or not.")
 
 
 class FactChecker:
@@ -73,9 +65,8 @@ class FactChecker:
             model_provider=model_params['model_provider'],
             api_key=model_params['api_key'],
             **model_params['model_args']
-        ).with_retry(
-            stop_after_attempt = model_params['max_llm_retries'],
-            )
+        )
+        self.model_params = model_params
 
     def run(self, state: SearchState) -> SearchState:
         state.steps.append(Node.FACT_CHECKER)
@@ -88,18 +79,26 @@ class FactChecker:
             notes = {key: getattr(state.notes, key) for key in state.search_focus}
             json_schema = {key: json_schema_base['properties'][key] for key in state.search_focus}
 
+        FactfulnessModel = create_model('FactfulnessModel', **{x: AtomicFactfulness for x in json_schema.keys()})
+
         instructions = FACT_CHECK_INSTRUCTIONS.format(search_type=state.search_type,
                                                       info=state.topic,
                                                       notes=json.dumps(notes, indent=2),
                                                       content=state.source_str,
-                                                      today=datetime.date.today().isoformat(),
-                                                      json_schema=json.dumps(json_schema, indent=2))
+                                                      today=datetime.date.today().isoformat())
+
+        structured_llm = self.base_llm.with_structured_output(
+            schema=FactfulnessModel,
+            include_raw=True,
+        ).with_retry(
+            stop_after_attempt=self.model_params['max_llm_retries']
+        )
 
         with get_usage_metadata_callback() as cb:
-            results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
-            json_dict = json.loads(results.content)
+            out_dict = structured_llm.invoke(instructions)
+            fact_check = out_dict['parsed']
             for k in notes.keys():
-                if json_dict[k]['is_fact'] is False:
+                if getattr(fact_check, k).is_fact is False:
                     match notes[k]:
                         case str():
                             setattr(state.notes, k, 'Not Available')

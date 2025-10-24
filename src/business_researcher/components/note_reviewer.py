@@ -5,6 +5,7 @@ import datetime
 
 from langchain_core.callbacks import get_usage_metadata_callback
 from langchain.chat_models import init_chat_model
+from pydantic import BaseModel, Field
 
 from ..state import SearchState
 from ..enums import Node, SearchType
@@ -30,14 +31,6 @@ Today's date is:
 {today}
 </today>
 
-<Format>
-* Format your response as a JSON object.
-* The JSON object should have the following fields:    
-    - "is_satisfactory": (Boolean decision) True if all required fields are well populated, False otherwise.
-    - "missing_fields": (List of string) List of field names that are missing or incomplete.    
-    - "reasoning": (string) Brief explanation of the assessment.
-</Format>
-
 <Requirements>
 * A field is marked as missing if that field is present in the schema but missing in the extracted information.
 * A field is marked as missing if that field is incomplete or containing uncertain information.
@@ -48,19 +41,27 @@ Today's date is:
 
 <Task>:
 * Analyze if all required fields are present and sufficiently populated.
-* Return your answer in the given JSON format.
 </Task>
 """
+
+class ReviewOutput(BaseModel):
+    is_satisfactory: bool = Field(description='True if all required fields are well populated, False otherwise')
+    missing_fields: list[str] = Field(description='List of field names that are missing or incomplete')
+    reasoning: str = Field(description='Brief explanation of the assessment')
+
 
 class NoteReviewer:
     def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
         self.model_name = model_params['model']
         self.configuration_module_prefix: Final = configuration_module_prefix
-        self.base_llm = init_chat_model(
+        self.structured_llm = init_chat_model(
             model=model_params['model'],
             model_provider=model_params['model_provider'],
             api_key=model_params['api_key'],
             **model_params['model_args']
+        ).with_structured_output(
+            schema = ReviewOutput,
+            include_raw = True,
         ).with_retry(
             stop_after_attempt = model_params['max_llm_retries'],
             )
@@ -141,18 +142,19 @@ class NoteReviewer:
                                             today=datetime.date.today().isoformat())
 
         with get_usage_metadata_callback() as cb:
-            # results = self.structured_llm.invoke(instructions)
-            results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
-            json_dict = json.loads(results.content)
+            out_dict = self.structured_llm.invoke(instructions)
+            review_output = out_dict['parsed']
+            # results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
+            # json_dict = json.loads(results.content)
 
             state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
             state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
-        state.is_review_successful = json_dict['is_satisfactory']
+            state.is_review_successful = review_output.is_satisfactory
 
-        if state.iteration == 0:
-            state.search_focus = json_dict['missing_fields']
-        else:
-            state.search_focus = [x for x in json_dict['missing_fields'] if x in state.search_focus]
+            if state.iteration == 0:
+                state.search_focus = review_output.missing_fields
+            else:
+                state.search_focus = [x for x in review_output.missing_fields if x in state.search_focus]
 
         # Leave these two steps as the last before return.
         state.steps.append(Node.NOTE_REVIEWER)

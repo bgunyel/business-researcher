@@ -9,7 +9,7 @@ from langchain_core.runnables import RunnableConfig
 
 from config import settings
 from src.business_researcher import BusinessResearcher, SearchType
-from ai_common import LlmServers, calculate_token_cost, TavilySearchDepth
+from ai_common import LlmServers, calculate_token_cost
 
 
 def main():
