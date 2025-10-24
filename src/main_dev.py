@@ -9,7 +9,7 @@ from langchain_core.runnables import RunnableConfig
 
 from config import settings
 from src.business_researcher import BusinessResearcher, SearchType
-from ai_common import LlmServers, calculate_token_cost
+from ai_common import LlmServers, calculate_token_cost, TavilySearchCategory, TavilySearchDepth
 
 
 def main():
@@ -62,7 +62,8 @@ def main():
             'max_tokens_per_source': 10000,
             'number_of_days_back': 360,
             'number_of_queries': 3,
-            'search_depth': 'advanced',
+            'search_category': TavilySearchCategory.GENERAL,
+            'search_depth': TavilySearchDepth.ADVANCED,
             },
         )
 
