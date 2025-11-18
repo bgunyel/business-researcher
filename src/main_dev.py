@@ -9,43 +9,34 @@ from langchain_core.runnables import RunnableConfig
 
 from config import settings
 from src.business_researcher import BusinessResearcher, SearchType
-from ai_common import LlmServers, calculate_token_cost, TavilySearchCategory, TavilySearchDepth
+from ai_common import LlmServers, ModelNames, calculate_token_cost, TavilySearchCategory, TavilySearchDepth
 
 
 def main():
-    os.environ['LANGSMITH_API_KEY'] = settings.LANGSMITH_API_KEY
+    os.environ['LANGSMITH_API_KEY'] = settings.LANGSMITH_API_KEY.get_secret_value()
     os.environ['LANGSMITH_TRACING'] = settings.LANGSMITH_TRACING
 
     llm_config = {
         'language_model': {
-            'model': 'llama-3.3-70b-versatile',
-            'model_provider': LlmServers.GROQ.value,
+            'model': ModelNames.GPT_OSS_20B,
+            'model_provider': LlmServers.GROQ,
             'api_key': settings.GROQ_API_KEY,
             'max_llm_retries': 3,
             'model_args': {
-                'service_tier': "auto",
                 'temperature': 0,
-                'max_retries': 5,
-                'max_tokens': 32768,
-                'model_kwargs': {
-                    'top_p': 0.95,
-                }
+                'reasoning_effort': 'low',  # only for gpt-oss models: ['high', 'medium', 'low']
+                'top_p': 0.95,
             }
         },
         'reasoning_model': {
-            'model': 'openai/gpt-oss-120b',  # 'qwen/qwen3-32b',  # 'deepseek-r1-distill-llama-70b',
-            'model_provider': LlmServers.GROQ.value,
+            'model': ModelNames.GPT_OSS_120B,
+            'model_provider': LlmServers.GROQ,
             'api_key': settings.GROQ_API_KEY,
             'max_llm_retries': 3,
             'model_args': {
-                'service_tier': "auto",
                 'temperature': 0,
-                'max_retries': 5,
-                'max_tokens': 65536,  # for deepseek and qwen3: 32768,
-                'reasoning_effort': 'medium',  # only for gpt-oss models: ['high', 'medium', 'low']
-                'model_kwargs': {
-                    'top_p': 0.95,
-                }
+                'reasoning_effort': 'high',  # only for gpt-oss models: ['high', 'medium', 'low']
+                'top_p': 0.95,
             }
         }
     }
@@ -69,8 +60,8 @@ def main():
 
 
 
-    print(f'Language Model: {language_model}')
-    print(f'Reasoning Model: {reasoning_model}')
+    print(f"Language Model: {llm_config['language_model']['model']} @ {llm_config['language_model']['model_provider']}")
+    print(f"Reasoning Model: {llm_config['reasoning_model']['model']} @ {llm_config['reasoning_model']['model_provider']}")
     print('\n\n')
 
     business_researcher = BusinessResearcher(llm_config = llm_config, web_search_api_key = settings.TAVILY_API_KEY)

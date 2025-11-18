@@ -4,9 +4,9 @@ from typing import Any, Final
 import datetime
 
 from langchain_core.callbacks import get_usage_metadata_callback
-from langchain.chat_models import init_chat_model
 from pydantic import BaseModel, Field
 
+from ai_common import get_llm, get_model_name_alias
 from ..state import SearchState
 from ..enums import Node, SearchType
 from .utils import get_schema
@@ -53,13 +53,14 @@ class ReviewOutput(BaseModel):
 class NoteReviewer:
     def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
         self.model_name = model_params['model']
+        self.model_name_alias = get_model_name_alias(model_name=self.model_name,
+                                                     model_provider=model_params['model_provider'])
         self.configuration_module_prefix: Final = configuration_module_prefix
-        self.structured_llm = init_chat_model(
-            model=model_params['model'],
-            model_provider=model_params['model_provider'],
-            api_key=model_params['api_key'],
-            **model_params['model_args']
-        ).with_structured_output(
+        base_llm = get_llm(model_name=model_params['model'],
+                           model_provider=model_params['model_provider'],
+                           api_key=model_params['api_key'],
+                           model_args=model_params['model_args'])
+        self.structured_llm = base_llm.with_structured_output(
             schema = ReviewOutput,
             include_raw = True,
         ).with_retry(
@@ -147,8 +148,8 @@ class NoteReviewer:
             # results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
             # json_dict = json.loads(results.content)
 
-            state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
-            state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
+            state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name_alias]['input_tokens']
+            state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name_alias]['output_tokens']
             state.is_review_successful = review_output.is_satisfactory
 
             if state.iteration == 0:

@@ -7,6 +7,7 @@ from ai_common.components import WebSearchNode
 from langgraph.graph import START, END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
+from pydantic import SecretStr
 
 from .components import QueryWriter, FactChecker, NoteTaker, NoteReviewer, is_review_successful, generate_info_str
 from .configuration import Configuration
@@ -16,7 +17,7 @@ from .state import SearchState, Person, Company
 
 class BusinessResearcher(GraphBase):
 
-    def __init__(self, llm_config: dict[str, Any], web_search_api_key: str) -> None:
+    def __init__(self, llm_config: dict[str, Any], web_search_api_key: SecretStr) -> None:
         self.memory_saver = MemorySaver()
         self.models = list({llm_config['language_model']['model'], llm_config['reasoning_model']['model']})
         self.configuration_module_prefix: Final = 'business_researcher.configuration'

@@ -1,10 +1,10 @@
 import datetime
 import json
-from typing import Any, Final
+from typing import Any, Final, List
 
-from langchain.chat_models import init_chat_model
 from langchain_core.callbacks import get_usage_metadata_callback
 from pydantic import BaseModel, Field, create_model
+from ai_common import get_llm, get_model_name_alias
 
 from .utils import get_schema
 from ..enums import Node
@@ -42,10 +42,16 @@ Today's date is:
 * If a value for a given field is filled with a masked value (e.g. h***@langchain.com), return False for the factfulness value.
 </Requirements> 
 
+<Format>
+* Return your response according to the following schema.
+{schema}
+</Format>
+
 <Task>
 * Think carefully about the provided sources.
 * Think carefully about the provided information, and the fields.
-* For each information field, check whether the information field is a fact, according to the source, or not. 
+* For each information field, check whether the information field is a fact, according to the source, or not.
+* Return your answer according to the given schema. 
 </Task>
 """
 
@@ -53,19 +59,19 @@ class AtomicFactfulness(BaseModel):
     title: str = Field(description="The title of the given information that is checked for factfulness.")
     value: Any = Field(description="The value of the given information that is checked for factfulness.")
     is_fact: bool = Field(description="Boolean decision: True if the given information is a fact according to the given source, else False.")
-    rationale: str = Field(description="Your detailed rationale in deciding whether the given information is a fact or not.")
+    sources: List[str] = Field(description="List of sources that support your decision. Only the source indices, no explanation. (e.g. [Source 1, Source 3, Source 12])")
 
 
 class FactChecker:
     def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
         self.model_name = model_params['model']
+        self.model_name_alias = get_model_name_alias(model_name=self.model_name,
+                                                     model_provider=model_params['model_provider'])
         self.configuration_module_prefix: Final = configuration_module_prefix
-        self.base_llm = init_chat_model(
-            model=model_params['model'],
-            model_provider=model_params['model_provider'],
-            api_key=model_params['api_key'],
-            **model_params['model_args']
-        )
+        self.base_llm = get_llm(model_name=model_params['model'],
+                                model_provider=model_params['model_provider'],
+                                api_key=model_params['api_key'],
+                                model_args=model_params['model_args'])
         self.model_params = model_params
 
     def run(self, state: SearchState) -> SearchState:
@@ -85,7 +91,8 @@ class FactChecker:
                                                       info=state.topic,
                                                       notes=json.dumps(notes, indent=2),
                                                       content=state.source_str,
-                                                      today=datetime.date.today().isoformat())
+                                                      today=datetime.date.today().isoformat(),
+                                                      schema=FactfulnessModel.model_json_schema())
 
         structured_llm = self.base_llm.with_structured_output(
             schema=FactfulnessModel,
@@ -105,7 +112,7 @@ class FactChecker:
                         case list():
                             setattr(state.notes, k, [])
 
-            state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
-            state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
+            state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name_alias]['input_tokens']
+            state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name_alias]['output_tokens']
 
         return state

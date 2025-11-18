@@ -1,11 +1,10 @@
 from typing import Any, Final
 import json
 
-from langchain.chat_models import init_chat_model
 from langchain_core.runnables import RunnableConfig
 from langchain_core.callbacks import get_usage_metadata_callback
 
-from ai_common import get_config_from_runnable, SearchQuery
+from ai_common import get_config_from_runnable, get_llm, get_model_name_alias, SearchQuery, LlmServers
 from .utils import get_schema
 from ..enums import Node, SearchType
 from ..state import SearchState
@@ -123,14 +122,33 @@ QUERY_WRITING_INSTRUCTIONS = {
 class QueryWriter:
     def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
         self.model_name = model_params['model']
+        self.model_name_alias = get_model_name_alias(model_name=self.model_name,
+                                                     model_provider=model_params['model_provider'])
         self.configuration_module_prefix: Final = configuration_module_prefix
-        self.base_llm = init_chat_model(
-            model=model_params['model'],
+        self.base_llm = get_llm(
+            model_name=model_params['model'],
             model_provider=model_params['model_provider'],
             api_key=model_params['api_key'],
-            **model_params['model_args']
-        )
-        # self.structured_llm = base_llm.with_structured_output(Queries)
+            model_args=model_params['model_args']
+            )
+        self.kwargs = None
+        match model_params['model_provider']:
+            case LlmServers.GROQ:
+                self.kwargs = {'response_format': {'type': 'json_object'}}
+            case LlmServers.OLLAMA:
+                self.kwargs = {'format': 'json'}
+            case _:
+                raise NotImplementedError
+
+
+        """
+        self.structured_llm = self.base_llm.with_structured_output(
+            schema = Queries,
+            include_raw = True,
+            ).with_retry(
+                stop_after_attempt = model_params['max_llm_retries']
+            )
+        """
 
     def run(self, state: SearchState, config: RunnableConfig) -> SearchState:
         """
@@ -191,9 +209,11 @@ class QueryWriter:
                                                           schema=json.dumps(schema, indent=2),
                                                           number_of_queries=configurable.number_of_queries)
         with get_usage_metadata_callback() as cb:
-            results = self.base_llm.invoke(instructions, response_format={"type": "json_object"})
-            state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
-            state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
+            results = self.base_llm.invoke(instructions, **self.kwargs)
+
+
+            state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name_alias]['input_tokens']
+            state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name_alias]['output_tokens']
             json_dict = json.loads(results.content)
             state.search_queries = [SearchQuery(**q) for q in json_dict['queries']]
 

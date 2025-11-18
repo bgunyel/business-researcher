@@ -1,9 +1,9 @@
 import datetime
 from typing import Any, Final
 
-from langchain.chat_models import init_chat_model
 from langchain_core.callbacks import get_usage_metadata_callback
 
+from ai_common import get_llm, get_model_name_alias
 from ..enums import SearchType, Node
 from ..schema import PersonSchema, CompanySchema
 from ..state import SearchState
@@ -47,13 +47,13 @@ Please make sure that:
 class NoteTaker:
     def __init__(self, model_params: dict[str, Any], configuration_module_prefix: str):
         self.model_name = model_params['model']
+        self.model_name_alias = get_model_name_alias(model_name=self.model_name,
+                                                     model_provider=model_params['model_provider'])
         self.configuration_module_prefix: Final = configuration_module_prefix
-        self.base_llm = init_chat_model(
-            model=model_params['model'],
-            model_provider=model_params['model_provider'],
-            api_key=model_params['api_key'],
-            **model_params['model_args']
-        )
+        self.base_llm = get_llm(model_name=model_params['model'],
+                                model_provider=model_params['model_provider'],
+                                api_key=model_params['api_key'],
+                                model_args=model_params['model_args'])
         self.model_params = model_params
 
     def run(self, state: SearchState) -> SearchState:
@@ -165,6 +165,6 @@ class NoteTaker:
             # json_dict = json.loads(results.content)
             # json_dict = {k: v['value'] for k, v in json_dict.items()}
             # state.notes = PersonSchema(**json_dict) if state.search_type == SearchType.PERSON else CompanySchema(**json_dict)
-            state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name]['input_tokens']
-            state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name]['output_tokens']
+            state.token_usage[self.model_name]['input_tokens'] += cb.usage_metadata[self.model_name_alias]['input_tokens']
+            state.token_usage[self.model_name]['output_tokens'] += cb.usage_metadata[self.model_name_alias]['output_tokens']
         return state
